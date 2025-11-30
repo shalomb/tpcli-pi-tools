@@ -29,10 +29,14 @@ help:
 ## venv: Create Python virtual environment
 venv:
 	@echo "$(BLUE)Creating virtual environment...$(NC)"
-	@$(UV) venv $(VENV_DIR) --python $(PYTHON_VERSION)
-	@echo "$(GREEN)✓ Virtual environment created$(NC)"
-	@echo ""
-	@echo "Activate with: source $(VENV_DIR)/bin/activate"
+	@if [ -d "$(VENV_DIR)" ]; then \
+		echo "$(YELLOW)Virtual environment already exists, skipping...$(NC)"; \
+	else \
+		$(UV) venv $(VENV_DIR) --python $(PYTHON_VERSION); \
+		echo "$(GREEN)✓ Virtual environment created$(NC)"; \
+		echo ""; \
+		echo "Activate with: source $(VENV_DIR)/bin/activate"; \
+	fi
 
 ## install: Install tpcli-pi-tools (basic)
 install: venv
