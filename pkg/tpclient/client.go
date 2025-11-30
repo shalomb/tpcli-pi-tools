@@ -1,6 +1,7 @@
 package tpclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -207,4 +208,96 @@ func (c *Client) QueryV2(entityType, query string) ([]map[string]interface{}, er
 	}
 
 	return response.Items, nil
+}
+
+// Create creates a new entity in TargetProcess
+func (c *Client) Create(entityType string, data []byte) ([]byte, error) {
+	// Validate JSON input
+	var jsonData interface{}
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("invalid JSON in data parameter")
+	}
+
+	path := fmt.Sprintf("/api/v1/%s", entityType)
+
+	resp, err := c.doRequest("POST", path, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		var apiErr struct {
+			Status  string `json:"Status"`
+			Message string `json:"Message"`
+			Type    string `json:"Type"`
+			ErrorId string `json:"ErrorId"`
+		}
+		msg := string(body)
+		if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+			msg = fmt.Sprintf("%s: %s (%s)", apiErr.Status, apiErr.Message, apiErr.Type)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
+	}
+
+	return body, nil
+}
+
+// Update updates an existing entity in TargetProcess
+func (c *Client) Update(entityType string, id string, data []byte) ([]byte, error) {
+	// Validate JSON input
+	var jsonData interface{}
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("invalid JSON in data parameter")
+	}
+
+	// Validate ID format (must be numeric)
+	// This prevents obvious errors before making the request
+	if id == "" {
+		return nil, fmt.Errorf("invalid ID format: ID cannot be empty")
+	}
+	for _, ch := range id {
+		if ch < '0' || ch > '9' {
+			return nil, fmt.Errorf("invalid ID format: %s", id)
+		}
+	}
+
+	path := fmt.Sprintf("/api/v1/%s/%s", entityType, id)
+
+	resp, err := c.doRequest("PUT", path, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var apiErr struct {
+			Status  string `json:"Status"`
+			Message string `json:"Message"`
+			Type    string `json:"Type"`
+			ErrorId string `json:"ErrorId"`
+		}
+		msg := string(body)
+		if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+			msg = fmt.Sprintf("%s: %s (%s)", apiErr.Status, apiErr.Message, apiErr.Type)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
+	}
+
+	return body, nil
 }
