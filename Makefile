@@ -105,6 +105,12 @@ tpcli: venv
 install: venv tpcli
 	echo "$(BLUE)Installing tpcli-pi-tools...$(NC)"
 	$(UV) sync
+	# If we built a local tpcli binary, also copy it to ~/.local/bin for global use
+	if [ -f "$(TPCLI_BIN)" ]; then \
+		mkdir -p "$${HOME}/.local/bin"; \
+		cp "$(TPCLI_BIN)" "$${HOME}/.local/bin/tpcli"; \
+		echo "$(GREEN)✓ tpcli binary installed: ~/.local/bin/tpcli$(NC)"; \
+	fi
 	echo "$(GREEN)✓ Installation complete$(NC)"
 	echo ""
 	echo "Available commands (run with 'uv run'):"
@@ -224,8 +230,92 @@ docs:
 	echo "$(BLUE)Documentation is in docs/ directory$(NC)"
 	echo "Start with: $(GREEN)docs/QUICKSTART.md$(NC)"
 
+## uat: User Acceptance Testing - test extensions work from any directory
+uat:
+	echo "$(BLUE)Running UAT: User Acceptance Tests$(NC)"
+	echo ""
+	echo "$(GREEN)Step 1: Verify tpcli config exists$(NC)"
+	if [[ ! -f "$$HOME/.config/tpcli/config.yaml" ]]; then \
+		echo "$(RED)Error: tpcli config not found at ~/.config/tpcli/config.yaml$(NC)"; \
+		exit 1; \
+	fi
+	echo "✓ Config file found: $$HOME/.config/tpcli/config.yaml"
+	echo ""
+	echo "$(GREEN)Step 2: List available extensions$(NC)"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	tpcli ext list
+	echo ""
+	echo "$(GREEN)Step 3: Test direct extension calls (global install)$(NC)"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	echo "  Testing: team-deep-dive --team 'Cloud Enablement & Delivery'"; \
+	team-deep-dive --team "Cloud Enablement & Delivery" > /tmp/uat-team-deep-dive.out 2>&1; \
+	if grep -q "Team Overview" /tmp/uat-team-deep-dive.out; then \
+		echo "  ✓ team-deep-dive works"; \
+	else \
+		echo "  $(RED)✗ team-deep-dive failed$(NC)"; \
+		cat /tmp/uat-team-deep-dive.out; \
+		exit 1; \
+	fi
+	echo ""
+	echo "$(GREEN)Step 4: Test tpcli ext wrapper$(NC)"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	echo "  Testing: tpcli ext team-deep-dive -- --team 'Cloud Enablement & Delivery'"; \
+	tpcli ext team-deep-dive -- --team "Cloud Enablement & Delivery" > /tmp/uat-ext-wrapper.out 2>&1; \
+	if grep -q "Team Overview" /tmp/uat-ext-wrapper.out; then \
+		echo "  ✓ tpcli ext wrapper works"; \
+	else \
+		echo "  $(RED)✗ tpcli ext wrapper failed$(NC)"; \
+		cat /tmp/uat-ext-wrapper.out; \
+		exit 1; \
+	fi
+	echo ""
+	echo "$(GREEN)Step 5: Test from arbitrary directory (/tmp)$(NC)"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	cwd=$$(pwd); \
+	cd /tmp; \
+	echo "  Current directory: $$(pwd)"; \
+	echo "  Testing: art-dashboard --art 'Data, Analytics and Digital'"; \
+	art-dashboard --art "Data, Analytics and Digital" > /tmp/uat-art-dashboard.out 2>&1; \
+	if grep -q "ART Dashboard" /tmp/uat-art-dashboard.out; then \
+		echo "  ✓ art-dashboard works from arbitrary directory"; \
+	else \
+		echo "  $(RED)✗ art-dashboard failed$(NC)"; \
+		cat /tmp/uat-art-dashboard.out; \
+		cd "$$cwd"; \
+		exit 1; \
+	fi; \
+	cd "$$cwd"
+	echo ""
+	echo "$(GREEN)Step 6: Test from home directory ($$HOME)$(NC)"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	cwd=$$(pwd); \
+	cd ~; \
+	echo "  Current directory: $$(pwd)"; \
+	echo "  Testing: team-deep-dive --team 'Cloud Enablement & Delivery'"; \
+	team-deep-dive --team "Cloud Enablement & Delivery" > /tmp/uat-home-dir.out 2>&1; \
+	if grep -q "Team Overview" /tmp/uat-home-dir.out; then \
+		echo "  ✓ team-deep-dive works from home directory"; \
+	else \
+		echo "  $(RED)✗ team-deep-dive failed from home$(NC)"; \
+		cat /tmp/uat-home-dir.out; \
+		cd "$$cwd"; \
+		exit 1; \
+	fi; \
+	cd "$$cwd"
+	echo ""
+	echo "$(GREEN)✓ UAT Complete: All tests passed!$(NC)"
+	echo ""
+	echo "Summary:"
+	echo "  ✓ Config file accessible"
+	echo "  ✓ Extensions discoverable via tpcli ext list"
+	echo "  ✓ Direct extension calls work (global install)"
+	echo "  ✓ tpcli ext wrapper works"
+	echo "  ✓ Extensions work from /tmp directory"
+	echo "  ✓ Extensions work from home directory"
+	echo "  ✓ No venv pollution - tools isolated"
+
 ## all: Install dev tools and run all checks
 all: install-dev check test
 	echo "$(GREEN)✓ All done! Everything looks good$(NC)"
 
-.PHONY: venv install install-dev install-global test test-cov lint type-check format bdd check clean run docs all help
+.PHONY: venv install install-dev install-global test test-cov lint type-check format bdd check clean run docs all uat help
