@@ -74,7 +74,11 @@ help:
 	echo "  clean                - Remove venv, binaries, and artifacts"; \
 	echo "  run                  - Run a command in venv (CMD=...)"; \
 	echo "  docs                 - Show documentation location"; \
+	echo "  show-config          - Open tpcli config in \$${EDITOR:-vi}"; \
 	echo "  all                  - Full setup: install-dev, check, test"; \
+	echo ""; \
+	echo "$(GREEN)Testing targets:$(NC)"; \
+	echo "  uat                  - User Acceptance Testing (end-to-end)"; \
 	echo ""; \
 	}
 
@@ -230,6 +234,16 @@ docs:
 	echo "$(BLUE)Documentation is in docs/ directory$(NC)"
 	echo "Start with: $(GREEN)docs/QUICKSTART.md$(NC)"
 
+## show-config: Open tpcli global config in editor
+show-config:
+	if [[ ! -f "$$HOME/.config/tpcli/config.yaml" ]]; then \
+		echo "$(RED)Error: tpcli config not found at ~/.config/tpcli/config.yaml$(NC)"; \
+		echo "Create it first with your TargetProcess credentials"; \
+		exit 1; \
+	fi
+	echo "$(BLUE)Opening tpcli config in $${EDITOR:-vi}$(NC)"
+	$${EDITOR:-vi} "$$HOME/.config/tpcli/config.yaml"
+
 ## uat: User Acceptance Testing - test extensions work from any directory
 uat:
 	echo "$(BLUE)Running UAT: User Acceptance Tests$(NC)"
@@ -318,4 +332,4 @@ uat:
 all: install-dev check test
 	echo "$(GREEN)✓ All done! Everything looks good$(NC)"
 
-.PHONY: venv install install-dev install-global test test-cov lint type-check format bdd check clean run docs all uat help
+.PHONY: venv install install-dev install-global test test-cov lint type-check format bdd check clean run docs show-config all uat help
