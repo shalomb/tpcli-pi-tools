@@ -1340,27 +1340,22 @@ When you see `<<<<<<< HEAD ... ======= ... >>>>>>>` markers:
 This is NORMAL - it means nothing was lost, just needs human decision.
 ```
 
-### Unknowns to Resolve Before Full Commitment
+### Decision: Model 1 APPROVED for MVP
 
-1. **Sync Latency**: How often does TP sync with Jira?
-   - Real-time? Within seconds?
-   - Batched? Every 5 minutes?
-   - This affects conflict frequency
+**Sync Behavior Confirmed**:
+- TP ↔ Jira sync latency: **Order of seconds** (effectively real-time)
+- Sync scope: **Fast enough** that we don't need to query Jira directly
+- Source of truth: **TargetProcess** (not Jira)
 
-2. **Sync Scope**: What exactly does TP sync?
-   - Does AC field get updated?
-   - Do child story counts change?
-   - Are dates/status updated?
-   - What triggers a sync?
+**Implication**: When we pull from TP, we get the latest state including any Jira syncs that happened in the background. No need to query Jira directly or worry about disagreement between systems.
 
-3. **User Preferences**: How will teams actually use this?
-   - Will they primarily edit in Jira or plan?
-   - Will they value seeing stories in markdown?
-   - Will they accept frequent conflicts?
+**Design Decision**:
+- Use Model 1 (Git-Native 3-Way Merge) as planned
+- Pull from TP only (TP is canonical)
+- Accept that merge conflicts may occur when Jira + user both edit, but they'll be correct conflicts
+- Document the workflow clearly (edit epics in plan, stories in Jira)
 
-4. **Change Attribution**: Can we determine change source?
-   - Was TP changed by Jira? Another push? Direct edit?
-   - Could add metadata to track this?
+**This unblocks Phase 1 implementation** - no additional validation needed.
 
 ### Phase B Consideration
 
