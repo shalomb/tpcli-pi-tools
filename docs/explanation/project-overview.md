@@ -50,7 +50,7 @@ go build -o tpcli
 
 **Option A: Environment Variables** (Recommended)
 ```bash
-export TP_URL="https://takedamain.tpondemand.com"
+export TP_URL="https://example.tpondemand.com"
 export TP_TOKEN="your-api-token"
 ```
 
@@ -62,7 +62,7 @@ cp .tpcli.yaml.example ~/.tpcli.yaml
 
 **Option C: Command Line**
 ```bash
-tpcli discover --url https://takedamain.tpondemand.com --token YOUR_TOKEN
+tpcli discover --url https://example.tpondemand.com --token YOUR_TOKEN
 ```
 
 ### Basic Commands

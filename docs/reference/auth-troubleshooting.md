@@ -2,122 +2,135 @@
 
 ## Current Status
 
+✅ **All systems operational!**
+
 We have successfully:
 ✅ Built a working Go CLI tool (`tpcli`) with entity listing and discovery commands
-✅ Connected to the TargetProcess API (https://takedamain.tpondemand.com)
+✅ Connected to the TargetProcess API (https://example.tpondemand.com)
 ✅ Identified correct API endpoints and query structure
-❌ **Authentication failing with 401 Unauthorized**
+✅ **FIXED: Authentication now working via query parameter method**
 
-## Authentication Error Details
+All commands (discover, list, get) are returning 200 OK and retrieving data.
 
-```
-Error: API error 401: One or more errors occurred.
-(MixedAuthentication was unable to authenticate the user)
-```
+## Solution: Query Parameter Authentication
 
-### What We Tried
+### The Fix
 
-1. **Token Format**: Using `$API_TOKEN` as-is in `Authorization: Basic` header
-   - Token: `NDUwOkU1UUhmL1pWUm1Ld2RyYlBFbDl6OUtQVXd3OEFhTG54dGxXcEdNMk42RWc9`
-   - Decoded: `450:E5QHf/ZVRmKwdrbPEl9z9KPUww8AaLnxtlWpGM2N6Eg=`
-   - Format: `userId:apiToken` (already base64-encoded)
-
-2. **HTTP Header Used**:
-   ```
-   Authorization: Basic NDUwOkU1UUhmL1pWUm1Ld2RyYlBFbDl6OUtQVXd3OEFhTG54dGxXcEdNMk42RWc9
-   ```
-
-## Possible Root Causes
-
-1. **API Token Expired or Invalid**
-   - The token may have been created for a different purpose
-   - The token may have restricted permissions
-   - The token may have expired
-
-2. **Wrong Authentication Method**
-   - Endpoint may require username/password instead of API token
-   - Token format might be different than documented
-   - May require Bearer token instead of Basic auth
-
-3. **User Role/Permissions Issue**
-   - User account (ID: 450) may not have API access
-   - Account may be inactive or restricted
-
-4. **API Key Format Mismatch**
-   - The `TP_API_KEY` may expect a different format
-   - May need to be `userId:rawToken` (without base64 encoding)
-
-## Next Steps to Resolve
-
-### Option A: Verify Token Format
-```bash
-# Try raw token (if base64-encoded token is wrong)
-curl -H "Authorization: Basic 450:E5QHf/ZVRmKwdrbPEl9z9KPUww8AaLnxtlWpGM2N6Eg=" \
-  https://takedamain.tpondemand.com/api/v1/Projects
-
-# Or base64-encode the decoded format
-echo -n "450:E5QHf/ZVRmKwdrbPEl9z9KPUww8AaLnxtlWpGM2N6Eg=" | base64
+The original implementation used Basic Authentication header:
+```go
+// BEFORE (Failed with 401)
+req.Header.Set("Authorization", fmt.Sprintf("Basic %s", c.Token))
 ```
 
-### Option B: Test with Username/Password
-```bash
-# Create new config with username/password
-tpcli discover --username=YOUR_USERNAME --password=YOUR_PASSWORD
+The fix uses query parameter authentication as documented in [IBM TargetProcess API v1 Authentication](https://www.ibm.com/docs/en/targetprocess/tp-dev-hub/saas?topic=v1-authentication):
+
+```go
+// AFTER (Working - 200 OK)
+q := req.URL.Query()
+q.Add("access_token", c.Token)
+req.URL.RawQuery = q.Encode()
 ```
 
-### Option C: Verify Token in TargetProcess UI
-1. Go to https://takedamain.tpondemand.com
-2. Settings > Access Tokens
-3. Create a new API token or verify existing token
-4. Ensure token has appropriate permissions
-5. Test with fresh token
+### Why This Works
 
-### Option D: Check Account Permissions
-1. Log in as the user (ID 450)
-2. Verify account is active
-3. Verify API access is enabled for the account
-4. Check if account has required permissions
+IBM TargetProcess API v1 supports multiple authentication methods:
+1. **Query Parameter** (used by tpcli): `GET /api/v1/UserStories/?access_token={token}`
+2. **Basic Auth Header** (also supported): `Authorization: Basic {base64(userId:token)}`
+3. **Cookie Auth** (requires login session)
 
-## Related Code
+The query parameter method is simpler and doesn't require special encoding.
 
-- **CLI Implementation**: `/home/unop/shalomb/tpcli/`
-- **MCP Reference**: `/home/unop/projects/aaronsb/apptio-target-process-mcp/`
-- **Discovery Document**: `DISCOVERY.md`
+### What Changed in Code
 
-## Command to Manually Test
+File: `pkg/tpclient/client.go` - `doRequest()` method (lines 46-50)
+
+```diff
+  // Add authentication token as query parameter
+- // Token is already base64 encoded in format expected by TargetProcess
+- req.Header.Set("Authorization", fmt.Sprintf("Basic %s", c.Token))
++ // This is the recommended method per IBM TargetProcess documentation
++ q := req.URL.Query()
++ q.Add("access_token", c.Token)
++ req.URL.RawQuery = q.Encode()
+```
+
+### Test Results
+
+All commands now work with 200 OK responses:
 
 ```bash
-# Setup
-export TP_TOKEN="NDUwOkU1UUhmL1pWUm1Ld2RyYlBFbDl6OUtQVXd3OEFhTG54dGxXcEdNMk42RWc9"
-export TP_URL="https://takedamain.tpondemand.com"
+# Test discover - identifies all entity types
+$ ./tpcli discover
+✓ Projects: 1 item
+✓ Epics: 1 item
+✓ Features: 1 item
+✓ UserStories: 1 item
+✓ Bugs: 1 item
 
-# Run discover
-cd ~/shalomb/tpcli
-./test-discover.sh
+# Test list - returns filtered results
+$ ./tpcli list UserStories --take 5
+[{id: 2028653, name: "..."}, ...]
 
-# Or use curl to test directly
-curl -v -H "Authorization: Basic $TP_TOKEN" \
-  "$TP_URL/api/v1/Projects?take=1"
+# Test get - retrieves individual entity
+$ ./tpcli get Projects 222402
+{id: 222402, name: "GDDT", effort: 72310.62, ...}
 ```
+
+## How to Use Authentication
+
+### Token Format
+
+Your access token should be obtained from TargetProcess UI:
+1. Log in to your TargetProcess instance
+2. Go to Settings > Personal > Access Tokens
+3. Create or copy an existing token
+4. Use the raw token value (no base64 encoding needed)
+
+### Configuration Methods
+
+**1. Environment Variable** (Recommended for local development)
+```bash
+export TP_TOKEN="your_access_token_here"
+export TP_URL="https://your-instance.tpondemand.com"
+./tpcli discover
+```
+
+**2. Configuration File** (~/.tpcli.yaml)
+```yaml
+token: your_access_token_here
+url: https://your-instance.tpondemand.com
+```
+
+**3. Command Line Flags**
+```bash
+./tpcli discover --token="your_access_token" --url="https://your-instance.tpondemand.com"
+```
+
+## Related Documentation
+
+- [API v1 Reference](api-v1-reference.md) - Complete API documentation
+- [Auth Methods Reference](auth-methods.md) - All authentication approaches
+- [Query Syntax](query-syntax.md) - How to filter and query data
 
 ## Architecture Notes
 
-The authentication flow in our Go CLI mirrors the MCP server:
+The authentication flow in tpcli:
 
 ```
-User Input (CLI flags/env vars)
+User Input (CLI flags/env vars/config file)
     ↓
 Config Parser (viper)
     ↓
 TPClient.NewClient(baseURL, token, verbose)
     ↓
 HTTP Request builder:
-    req.Header.Set("Authorization", fmt.Sprintf("Basic %s", token))
+    q.Add("access_token", token)
+    req.URL.RawQuery = q.Encode()
     ↓
-GET https://takedamain.tpondemand.com/api/v1/{EntityType}
+GET https://instance.tpondemand.com/api/v1/{EntityType}?access_token={token}
 ```
 
-## API Response Format (When Auth Works)
+## API Response Format
 
 ```json
 {
@@ -126,14 +139,30 @@ GET https://takedamain.tpondemand.com/api/v1/{EntityType}
       "Id": 12345,
       "Name": "Entity Name",
       "EntityState": {"Name": "Open"},
+      "CreateDate": "/Date(1764342238000-0500)/",
       ...
     }
-  ]
+  ],
+  "Next": "/api/v1/UserStories?take=25&skip=25",
+  "Prev": "/api/v1/UserStories?take=25&skip=0"
 }
 ```
 
-## Files for Testing
+## Testing Authentication
 
-- `~/shalomb/tpcli/test-discover.sh` - Test script with env vars
-- `~/shalomb/tpcli/tpcli` - Compiled binary
-- `~/shalomb/tpcli/cmd/discover.go` - Discovery command implementation
+Test your connection with the discover command:
+
+```bash
+./tpcli discover
+
+# Expected output:
+# Discovering Projects... ✓ Found 1 items
+# Discovering Epics... ✓ Found 1 items
+# ...
+```
+
+If you get 401 errors:
+1. Verify token is valid in TargetProcess UI
+2. Ensure token hasn't expired
+3. Check that your user account has API access permissions
+4. Try with a fresh token if issues persist

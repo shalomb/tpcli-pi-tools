@@ -19,7 +19,7 @@ tpcli supports three authentication methods:
 
 Go to your instance:
 ```
-https://takedamain.tpondemand.com
+https://example.tpondemand.com
 ```
 
 ### Step 2: Access Token Settings
@@ -43,7 +43,7 @@ NDUwOkU1UUhmL1pWUm1Ld2RyYlBFbDl6OUtQVXd3OEFhTG54dGxXcEdNMk42RWc9
 ### Method 1: Environment Variables (Recommended for Scripts)
 
 ```bash
-export TP_URL="https://takedamain.tpondemand.com"
+export TP_URL="https://example.tpondemand.com"
 export TP_TOKEN="your-api-token-here"
 
 # Test
@@ -58,7 +58,7 @@ export TP_TOKEN="your-api-token-here"
 Create `~/.tpcli.yaml`:
 
 ```yaml
-url: https://takedamain.tpondemand.com
+url: https://example.tpondemand.com
 token: your-api-token-here
 verbose: false
 ```
@@ -75,7 +75,7 @@ Then use normally:
 
 ```bash
 ./tpcli list UserStories \
-  --url https://takedamain.tpondemand.com \
+  --url https://example.tpondemand.com \
   --token "your-api-token-here"
 ```
 
@@ -118,7 +118,7 @@ echo $TP_URL
 cat ~/.tpcli.yaml
 
 # Try command-line approach
-./tpcli list Projects --token "your-token" --url "https://takedamain.tpondemand.com"
+./tpcli list Projects --token "your-token" --url "https://example.tpondemand.com"
 ```
 
 ### Error: "401 Unauthorized"

@@ -24,13 +24,13 @@ You can configure `tpcli` in three ways (in order of precedence):
 ### 1. Command-line flags
 
 ```bash
-tpcli list UserStories --url https://takedamain.tpondemand.com --token YOUR_TOKEN
+tpcli list UserStories --url https://example.tpondemand.com --token YOUR_TOKEN
 ```
 
 ### 2. Environment variables
 
 ```bash
-export TP_URL=https://takedamain.tpondemand.com
+export TP_URL=https://example.tpondemand.com
 export TP_TOKEN=YOUR_TOKEN
 tpcli list UserStories
 ```
@@ -40,7 +40,7 @@ tpcli list UserStories
 Create `~/.tpcli.yaml`:
 
 ```yaml
-url: https://takedamain.tpondemand.com
+url: https://example.tpondemand.com
 token: YOUR_TOKEN_HERE
 verbose: false
 ```

@@ -1,10 +1,10 @@
 # TargetProcess API Discovery
 
 ## Instance Information
-- **Domain**: takedamain.tpondemand.com
+- **Domain**: example.tpondemand.com
 - **Authentication**: API Key format (base64 encoded `userId:apiToken`)
-- **API Base URL**: https://takedamain.tpondemand.com/api/v1
-- **API v2 URL**: https://takedamain.tpondemand.com/api/v2
+- **API Base URL**: https://example.tpondemand.com/api/v1
+- **API v2 URL**: https://example.tpondemand.com/api/v2
 
 ## Entity Model
 
@@ -42,7 +42,7 @@ Epic
 
 #### Board View (Epic/Feature Level)
 ```
-https://takedamain.tpondemand.com/RestUI/Board.aspx
+https://example.tpondemand.com/RestUI/Board.aspx
   #page=board/{boardId}
   &appConfig={encodedConfig}
   &boardPopup={entityType}/{entityId}/silent
@@ -55,13 +55,13 @@ Example:
 
 #### Entity View (Direct)
 ```
-https://takedamain.tpondemand.com/entity/{id}-{slug}
-https://takedamain.tpondemand.com/restui/board.aspx?#page={entityType}/{id}
+https://example.tpondemand.com/entity/{id}-{slug}
+https://example.tpondemand.com/restui/board.aspx?#page={entityType}/{id}
 ```
 
 Example:
-- User Story: `https://takedamain.tpondemand.com/entity/1938771-idt-lims-update`
-- Redirects to: `https://takedamain.tpondemand.com/restui/board.aspx?#page=userstory/1938771`
+- User Story: `https://example.tpondemand.com/entity/1938771-idt-lims-update`
+- Redirects to: `https://example.tpondemand.com/restui/board.aspx?#page=userstory/1938771`
 
 ## API Authentication
 
@@ -73,7 +73,7 @@ Authorization: Basic {base64(userId:apiToken)}
 Environment Variable:
 ```bash
 TP_API_KEY=NDUwOkU1UUhmL1pWUm1Ld2RyYlBFbDl6OUtQVXd3OEFhTG54dGxXcEdNMk42RWc9
-TP_DOMAIN=takedamain.tpondemand.com
+TP_DOMAIN=example.tpondemand.com
 ```
 
 ### Method 2: Basic Auth
@@ -85,7 +85,7 @@ Environment Variables:
 ```bash
 TP_USERNAME=your-username
 TP_PASSWORD=your-password
-TP_DOMAIN=takedamain.tpondemand.com
+TP_DOMAIN=example.tpondemand.com
 ```
 
 ## API Response Format

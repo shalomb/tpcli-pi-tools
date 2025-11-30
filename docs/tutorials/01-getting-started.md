@@ -29,7 +29,7 @@ go build -o tpcli
 
 Set environment variables:
 ```bash
-export TP_URL="https://takedamain.tpondemand.com"
+export TP_URL="https://example.tpondemand.com"
 export TP_TOKEN="your-api-token"
 ```
 

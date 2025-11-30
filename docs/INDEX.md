@@ -117,7 +117,7 @@ go run main.go discover         # Run without building
 ## 🔗 Key Links
 
 - **Project Root**: `~/shalomb/tpcli/`
-- **TP Instance**: https://takedamain.tpondemand.com
+- **TP Instance**: https://example.tpondemand.com
 - **TP API Docs**: https://dev.targetprocess.com/docs
 - **MCP Reference**: `~/projects/aaronsb/apptio-target-process-mcp/`
 
