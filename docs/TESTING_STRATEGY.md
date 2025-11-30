@@ -323,6 +323,178 @@ go test -cover ./...
 
 ---
 
+## Golden Files and API Response Cassettes
+
+### Purpose
+
+**Golden Files** (pre-recorded API responses) are critical for:
+- **Respectful API usage**: Don't hammer TP API with test calls
+- **Test speed**: No network latency, instant feedback
+- **Deterministic tests**: Same response every time
+- **Offline testing**: Work without credentials or API access
+- **CI/CD friendly**: No secrets or external dependencies
+
+### Tools
+
+**Go**:
+- `httptest` (current approach) for unit tests
+- Store cassettes as JSON in `tests/fixtures/go/`
+- Or use `vcr` package for integration tests
+
+**Python**:
+- `vcrpy` for recording/replaying HTTP interactions
+- `pytest-vcr` for pytest integration
+- Store cassettes as YAML in `tests/fixtures/python/`
+
+### Pattern
+
+**First Run (Capture)**:
+```python
+@pytest.mark.vcr
+def test_create_objective_with_real_api(vcr_cassette):
+    """
+    First run: Hits real TP API, records response to cassette
+    Subsequent runs: Replays from cassette
+    """
+    client = APIClient(base_url=TP_API_URL, token=TP_TOKEN)
+    objective = client.create_team_objective(
+        name="API Perf",
+        team_id=1935991,
+        release_id=1942235
+    )
+    assert objective.id > 0
+```
+
+**Cassette File** (`tests/fixtures/python/test_create_objective.yaml`):
+```yaml
+interactions:
+- request:
+    body: '{"name":"API Perf","team_id":1935991,"release_id":1942235}'
+    headers:
+      Content-Type: [application/json]
+    method: POST
+    uri: https://company.tpondemand.com/api/v1/TeamPIObjective?access_token=***
+  response:
+    body: {string: '{"id":12345,"name":"API Perf","team_id":1935991,...}'}
+    headers:
+      Content-Type: [application/json]
+    status: {code: 200, message: OK}
+version: 1
+```
+
+### Setup
+
+**Python (vcrpy)**:
+```bash
+# Install
+pip install vcrpy pytest-vcr
+
+# Configure in conftest.py
+import pytest_vcr
+
+@pytest.fixture
+def vcr_config():
+    return {
+        "filter_headers": ['Authorization', 'access_token'],
+        "cassette_library_dir": "tests/fixtures/python",
+    }
+```
+
+**Go (manual cassettes)**:
+```go
+// Store TP API responses as JSON fixtures
+type TPFixture struct {
+    Endpoint string                 // POST /api/v1/TeamPIObjective
+    Request  map[string]interface{} // {"name":"API Perf",...}
+    Response map[string]interface{} // {"id":12345,...}
+    Status   int                    // 200, 404, etc
+}
+
+// Load in tests
+func loadFixture(t *testing.T, name string) *TPFixture {
+    data, err := ioutil.ReadFile(fmt.Sprintf("tests/fixtures/go/%s.json", name))
+    // Parse and return...
+}
+```
+
+### When to Record New Cassettes
+
+**Record ONCE when**:
+- API contract changes (new fields, endpoints)
+- Updating TP API version
+- Adding new entity types or workflows
+
+**Refresh cassettes**:
+- Quarterly (validate against real API)
+- After TP version upgrades
+- On CI/CD: if cassettes older than N days, re-record
+
+### Directory Structure
+
+```
+tests/
+├── fixtures/
+│   ├── go/
+│   │   ├── create_objective_success.json
+│   │   ├── create_objective_invalid_json.json
+│   │   └── update_objective_not_found.json
+│   └── python/
+│       ├── test_create_objective.yaml
+│       ├── test_update_objective.yaml
+│       └── test_markdown_generation.yaml
+├── features/
+│   ├── *.feature
+│   └── steps/
+├── unit/
+└── integration/
+```
+
+### Example: Section 1.2 (Python API Wrapper)
+
+BDD scenario uses golden file:
+```gherkin
+Scenario: Create team objective via Python client
+  When Python code calls: client.create_team_objective("API Perf", team_id=1935991)
+  Then subprocess "tpcli create TeamPIObjective --data ..." is called
+  And response from tests/fixtures/python/create_objective_success.yaml
+  And TeamPIObjective object is returned
+  And object is added to cache with ID
+```
+
+Unit test uses same fixture:
+```python
+@pytest.mark.vcr("create_objective_success")
+def test_create_team_objective_returns_typed_object():
+    # Uses tests/fixtures/python/create_objective_success.yaml
+    objective = client.create_team_objective(...)
+    assert isinstance(objective, TeamPIObjective)
+    assert objective.id == 12345
+```
+
+### Benefits for Phase 1
+
+| Section | Golden Files | Purpose |
+|---------|-------------|---------|
+| 1.1 | create_update_responses.json | CLI integration tests |
+| 1.2 | api_client_responses.yaml | Python wrapper testing |
+| 1.3 | tp_api_full_plan_response.yaml | Markdown generation test data |
+| 1.4 | git_sync_api_responses.yaml | Pull/push workflow testing |
+| 1.5 | end_to_end_workflow.yaml | Full E2E integration |
+
+### CI/CD Considerations
+
+**In CI pipeline**:
+```bash
+# Use pre-recorded cassettes (default)
+make test  # Uses tests/fixtures/
+
+# Optional: Re-record weekly (respects TP API)
+# (only if TP_TOKEN secret is available)
+make test-record-cassettes  # Record from real API
+```
+
+---
+
 ## Python-Specific Patterns
 
 ### Pytest Fixtures
