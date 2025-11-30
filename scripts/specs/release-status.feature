@@ -32,10 +32,10 @@ Feature: View Release/PI Status and Progress
     When I run: ./scripts/release-status.sh --release "PI-4/25" --show teams
     Then I should see team summary:
       | Team Name               | Obj Count | Status    | Committed | Effort |
-      | Cloud Enablement & Del. | 1         | Pending   | No        | TBD    |
+      | Example Team & Del. | 1         | Pending   | No        | TBD    |
       | Team Superman (DQH)     | 3         | Pending   | No        | TBD    |
       | PIC - Thanos            | 4         | Pending   | No        | TBD    |
-      | DG & MDM POD            | 5         | Pending   | No        | TBD    |
+      | Example POD            | 5         | Pending   | No        | TBD    |
       | [... 23 more teams]     | 27 total  | -         | -         | -      |
 
   Scenario: View program objectives status
@@ -129,8 +129,8 @@ Feature: View Release/PI Status and Progress
 
   Scenario: Drill down from release to team/objective
     When I run: ./scripts/release-status.sh --release "PI-4/25"
-    And I see team "Cloud Enablement & Delivery"
-    And I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --pi "PI-4/25"
+    And I see team "Example Team"
+    And I run: ./scripts/team-deep-dive.sh --team "Example Team" --pi "PI-4/25"
     Then I should see detailed team information for that PI
 
   Scenario: Handle release not found

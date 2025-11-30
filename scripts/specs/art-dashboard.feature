@@ -34,7 +34,7 @@ Feature: View ART Dashboard for PI Planning
     When I run: ./scripts/art-dashboard.sh --art "Data, Analytics and Digital"
     Then I should see a "Teams" section listing all teams with:
       | Attribute    | Example                      |
-      | Team name    | Cloud Enablement & Delivery  |
+      | Team name    | Example Team  |
       | Team ID      | 2022903                      |
       | Objective count | 2 (number of PI objectives) |
       | Status       | Number of objectives by status |

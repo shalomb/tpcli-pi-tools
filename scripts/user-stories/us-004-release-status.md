@@ -153,7 +153,7 @@ Blocker Detection:
   ├─ Example Team: 1 objective
   ├─ Team Superman (DQH): 4 objectives
   ├─ PIC - Thanos: 4 objectives
-  ├─ DG & MDM POD: 5 objectives
+  ├─ Example POD: 5 objectives
   └─ ... 23 more teams
 
 📊 PI PROGRESS

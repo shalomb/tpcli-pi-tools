@@ -26,7 +26,7 @@ Feature: Drill into Objective Details and Dependencies
       | Owner               | Shalom Bhooshi                   |
       | Description         | (Full text if available)         |
       | Release             | PI-4/25                          |
-      | Team (if team obj)  | Cloud Enablement & Delivery      |
+      | Team (if team obj)  | Example Team      |
       | Start date          | Jan 2, 2025                      |
       | End date            | Jan 13, 2025                     |
       | Created by          | Shalom Israel Bhooshi            |
@@ -55,7 +55,7 @@ Feature: Drill into Objective Details and Dependencies
       | Dependency Type    | Example                                    |
       | Blocks             | "Waiting for infrastructure from Team X"  |
       | Blocked by         | "Depends on Team Y's MSK setup"           |
-      | Related objectives | "ECS1-13937 (original story)"             |
+      | Related objectives | "PROJ-1234 (original story)"             |
       | External deps      | "AWS Transfer Family approval needed"     |
 
   Scenario: View risk assessment and mitigation
@@ -73,9 +73,9 @@ Feature: Drill into Objective Details and Dependencies
     When I run: ./scripts/objective-deep-dive.sh --objective 2029314 --show jira
     Then I should see Jira integration:
       | Aspect                | Example              |
-      | Matching Jira epic    | DAD-2527             |
+      | Matching Jira epic    | EX-100             |
       | Epic status           | Funnel (In Progress) |
-      | Linked issues in epic | DAD-2527, DAD-2528.. |
+      | Linked issues in epic | EX-100, EX-101.. |
       | External issue IDs    | If custom field      |
       | Suggested epic name   | If not yet linked    |
 
@@ -84,7 +84,7 @@ Feature: Drill into Objective Details and Dependencies
     Then I should see stakeholder details:
       | Role             | Example                     |
       | Owner            | Shalom Bhooshi              |
-      | Team             | Cloud Enablement & Delivery |
+      | Team             | Example Team |
       | Sponsor/Requester| Saso Jezernik               |
       | Collaborators    | List of people              |
       | Watchers         | Who's tracking this         |
@@ -139,7 +139,7 @@ Feature: Drill into Objective Details and Dependencies
     When I run: ./scripts/objective-deep-dive.sh --objective 2029314 --compare-with 2023681
     Then I should see comparison:
       | Attribute    | Obj 2029314                | Obj 2023681            |
-      | Team         | Cloud Enablement & Delivery| DG & MDM POD           |
+      | Team         | Example Team| Example POD           |
       | Release      | PI-4/25                   | PI-4/25                |
       | Status       | Pending                   | Pending                |
       | Effort       | TBD                       | TBD                    |

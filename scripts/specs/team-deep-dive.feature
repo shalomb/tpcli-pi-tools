@@ -16,10 +16,10 @@ Feature: Drill into Team Details for PI
     And I have access to scripts/
 
   Scenario: View team profile and capacity
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery"
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team"
     Then I should see team information:
       | Attribute        | Example                   |
-      | Team name        | Cloud Enablement & Delivery |
+      | Team name        | Example Team |
       | Team ID          | 2022903                   |
       | ART              | Data, Analytics and Digital |
       | Owner            | Shalom Bhooshi            |
@@ -27,7 +27,7 @@ Feature: Drill into Team Details for PI
       | Status           | Active                    |
 
   Scenario: View team's PI objectives for current/upcoming PI
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --pi current
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --pi current
     Then I should see team PI objectives:
       | Attribute       | Example                         |
       | Objective name  | Enable Data Transfer using MSK  |
@@ -39,7 +39,7 @@ Feature: Drill into Team Details for PI
       | End date        | Jan 13, 2025                    |
 
   Scenario: View features linked to team objectives
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --show features
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --show features
     Then I should see for each objective:
       | Linked Features |
       | Feature name    |
@@ -48,7 +48,7 @@ Feature: Drill into Team Details for PI
       | Feature owner   |
 
   Scenario: View team's capacity and workload
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --show capacity
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --show capacity
     Then I should see capacity information:
       | Metric              | Example        |
       | Team size           | 2 people       |
@@ -58,7 +58,7 @@ Feature: Drill into Team Details for PI
       | Risk: overcommitted | ⚠️ Yes/No      |
 
   Scenario: View team's risks and blockers
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --show risks
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --show risks
     Then I should see identified risks:
       | Risk Category   | Example                                    |
       | Dependencies    | "Waiting on Team X for infrastructure"    |
@@ -68,7 +68,7 @@ Feature: Drill into Team Details for PI
       | Unknown risks   | "Flag: Description empty on 3 objectives" |
 
   Scenario: View team's previous/historical PI performance
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --show history
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --show history
     Then I should see last N PIs with:
       | Metric               | Example    |
       | Release name         | PI-2/25    |
@@ -78,7 +78,7 @@ Feature: Drill into Team Details for PI
       | Average effort/obj   | 20 points  |
 
   Scenario: Link to related Jira epics
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --show jira-links
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --show jira-links
     Then I should see for each objective:
       | Jira Integration         |
       | Matching Jira epics      |
@@ -86,14 +86,14 @@ Feature: Drill into Team Details for PI
       | External issue keys      |
 
   Scenario: Export team details
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --format json
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --format json
     Then I should get JSON output with all team data
 
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery" --format markdown
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team" --format markdown
     Then I should get a markdown report suitable for sharing
 
   Scenario: Show context for decision making
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery"
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team"
     Then I should see a summary section:
       """
       EXECUTIVE SUMMARY:
@@ -111,14 +111,14 @@ Feature: Drill into Team Details for PI
       """
       Error: Team 'Nonexistent Team' not found
       Available teams:
-        - Cloud Enablement & Delivery
+        - Example Team
         - Team Superman (DQH)
         - PIC - Thanos
         - [... more teams]
       """
 
   Scenario: Drill down from team to objective details
-    When I run: ./scripts/team-deep-dive.sh --team "Cloud Enablement & Delivery"
+    When I run: ./scripts/team-deep-dive.sh --team "Example Team"
     And I see objective "Enable Data Transfer using MSK (ID: 2029314)"
     And I run: ./scripts/objective-deep-dive.sh --objective 2029314
     Then I should see full objective details with dependencies, risks, linked features

@@ -145,7 +145,7 @@ Jira Correlation:
   Effort:        Not estimated
 
 📝 DESCRIPTION (structured)
-  title: IronMountain → Takeda Databricks S3 transfer
+  title: Example Databricks S3 transfer
   cloud_request_id: 1750
   status: in_progress
   priority: high
