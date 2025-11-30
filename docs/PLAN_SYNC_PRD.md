@@ -1159,7 +1159,220 @@ When `tpcli plan pull` fetches updated data from TP:
 
 ---
 
-## 11. Architecture Decisions
+## 11. State Management: Handling TP-Jira Bidirectional Sync
+
+### The Core Issue
+
+When creating an Epic in TargetProcess:
+1. TP automatically creates corresponding Jira Epic
+2. TP monitors Jira Epic for all changes (stories, AC, status, etc.)
+3. TP syncs those changes back to TP state
+
+**This means: TargetProcess state is NOT stable** - it's being mutated by Jira activity in the background.
+
+#### Timeline Example
+```
+T0:    tpcli plan pull
+       TP State: Epic "Platform Governance" [AC: "Configure limits"]
+       Git: TP-PI-xxx branch @ T0
+       Feature branch: User ready to edit
+
+T0+X:  Meanwhile in Jira:
+       Team adds Story D, updates Story A AC
+       ↓
+       TP syncs changes
+       ↓
+       TP State: Epic "Platform Governance" [AC: "Set Pod limits for performance"]
+
+T0+2X: User edits markdown locally
+
+T0+3X: tpcli plan push
+       Now must reconcile:
+       - Base: TP @ T0 (our anchor point)
+       - User edits: Feature branch changes
+       - Current: TP @ T0+3X (includes Jira updates)
+```
+
+### State Management Models
+
+#### **Model 1: Git-Native 3-Way Merge (RECOMMENDED for MVP)**
+
+```
+TP-PI-xxx (tracking branch) ← Fresh TP state on each pull
+         ↓ (merge-base)
+feature/plan-xxx (user working branch)
+         ↓ (3-way merge)
+Resolved markdown (conflicts marked if both sides changed AC)
+         ↓ (push)
+Apply changes to TP
+```
+
+**How conflicts are handled:**
+- If only Jira updated AC: Accept Jira's version (no conflict)
+- If only user updated AC: Accept user's version (no conflict)
+- If both Jira AND user updated AC: CONFLICT (user resolves)
+
+**Examples:**
+
+Case 1 - No conflict (Jira only):
+```
+Base:    Epic AC: "Configure limits"
+User:    Epic AC: "Configure limits" (unchanged), adds Epic C
+Current: Epic AC: "Configure limits and monitoring" (Jira updated)
+
+Result: Merged ✅ (accept Jira's AC, add user's Epic C)
+```
+
+Case 2 - Conflict (both touched AC):
+```
+Base:    Epic AC: "Configure limits"
+User:    Epic AC: "Configure limits and monitor" (user edited)
+Current: Epic AC: "Set Pod-level constraints" (Jira updated)
+
+Result: CONFLICT ❌ (need human decision)
+```
+
+**Pros:**
+- Leverages git's battle-tested algorithm
+- Clear audit trail (git commits show who did what)
+- Handles accidental conflicts correctly
+- No new system dependencies
+
+**Cons:**
+- Frequent conflicts if teams actively using both Jira and plan
+- Users need to understand git conflict resolution
+- Doesn't show "reason for change" (Jira vs user vs tpcli push)
+
+**Success depends on:**
+- How chatty is TP↔Jira sync? (Real-time? Batch? Polling?)
+- Do teams edit same sections in both Jira and plan? (If yes, conflicts; if no, clean)
+- User comfort with conflict markers
+
+---
+
+#### **Model 2: Hybrid (TP Epics + Jira Stories Direct)**
+
+Query Jira directly in addition to TP:
+
+```
+Pull sequence:
+1. Fetch Epic/Objective from TP (source of truth)
+2. Fetch Stories directly from Jira (fresher data)
+3. Build markdown with stories as read-only H4 sections
+4. Apply 3-way merge against base (TP state @ last pull)
+```
+
+**Pros:**
+- Stories always real-time from Jira
+- Clear separation: editable (H2-H3) vs read-only (H4)
+- Users see true scope in one markdown file
+
+**Cons:**
+- Requires Jira API credentials (separate from TP)
+- More complex implementation
+- Risk of TP/Jira disagreement on story status
+- ~3-5 additional days implementation
+
+**When to use:**
+- MVP shows too many conflicts from Jira sync
+- Users want full decomposition in markdown
+- Team actively editing both systems simultaneously
+
+---
+
+#### **Model 3: Batch/Scheduled Sync**
+
+If TP sync latency is known and batched, we could:
+- Pull, get fresh TP state
+- Extract "last change timestamp" from TP
+- Detect if TP was updated due to Jira or user push
+- Warn user: "TP changed due to Jira activity since your last pull"
+
+**Pros:**
+- Can explain "why TP changed"
+- Users can make informed decision to rebase
+
+**Cons:**
+- Requires TP to expose "change reason" or timestamps
+- Might need custom TP query
+
+---
+
+### Recommendation for MVP
+
+**Use Model 1 (Git-Native 3-Way Merge)** with explicit assumptions:
+
+#### MVP Assumptions
+1. **Jira sync is relatively infrequent** - teams don't constantly add stories
+2. **User awareness** - teams understand markdown plan ↔ Jira are linked
+3. **Conflict resolution acceptable** - git conflict markers are fine
+4. **Clear workflow** - document that teams can:
+   - Edit epics/objectives in plan (git)
+   - Edit stories in Jira (git doesn't know about this)
+   - `tpcli plan pull` frequently to stay in sync
+   - Resolve conflicts when they appear
+
+#### MVP Workflow Documentation
+```markdown
+## Plan Editing Workflow with Active Jira Decomposition
+
+### Your Responsibilities
+- **Edit Plan**: Markdown files (epics, objectives, effort)
+- **Edit Stories**: Jira (stories, tasks, AC) - NOT in markdown
+
+### Jira Team's Responsibilities
+- Edit stories in Jira (add, remove, update)
+- This will be visible in TP and might cause merge conflicts
+
+### When to Pull
+- Before starting your edit session: `tpcli plan pull`
+- After team finishes Jira updates: `tpcli plan pull`
+- When you see unexpected changes: `tpcli plan pull`
+
+### Conflict Resolution
+When you see `<<<<<<< HEAD ... ======= ... >>>>>>>` markers:
+1. Identify the section (usually Acceptance Criteria or epic changes)
+2. Understand: Your changes OR Jira team's updates?
+3. Decide: Keep both, keep one, or merge
+4. Remove conflict markers
+5. Commit: `git add . && git commit -m "Resolve merge conflict"`
+
+This is NORMAL - it means nothing was lost, just needs human decision.
+```
+
+### Unknowns to Resolve Before Full Commitment
+
+1. **Sync Latency**: How often does TP sync with Jira?
+   - Real-time? Within seconds?
+   - Batched? Every 5 minutes?
+   - This affects conflict frequency
+
+2. **Sync Scope**: What exactly does TP sync?
+   - Does AC field get updated?
+   - Do child story counts change?
+   - Are dates/status updated?
+   - What triggers a sync?
+
+3. **User Preferences**: How will teams actually use this?
+   - Will they primarily edit in Jira or plan?
+   - Will they value seeing stories in markdown?
+   - Will they accept frequent conflicts?
+
+4. **Change Attribution**: Can we determine change source?
+   - Was TP changed by Jira? Another push? Direct edit?
+   - Could add metadata to track this?
+
+### Phase B Consideration
+
+If MVP shows that conflicts are too frequent or confusing, Phase B should:
+1. Implement Model 2 (Hybrid - Jira stories direct)
+2. Query Jira API in addition to TP
+3. Show stories as read-only H4 sections
+4. Reduce conflicts by having fresher baseline
+
+---
+
+## 12. Architecture Decisions
 
 ### Why Git-Style Conflict Markers?
 
@@ -1219,7 +1432,7 @@ When `tpcli plan pull` fetches updated data from TP:
 
 ---
 
-## 12. Glossary
+## 13. Glossary
 
 | Term | Definition |
 |------|-----------|
@@ -1236,14 +1449,15 @@ When `tpcli plan pull` fetches updated data from TP:
 
 ---
 
-## 13. Document History
+## 14. Document History
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
 | 2025-11-30 | 1.0 | Initial PRD with all design decisions | Engineering |
 | 2025-11-30 | 1.1 | Add Jira Integration Considerations section (Epic #2018883 analysis) | Engineering |
-| TBD | 1.2 | Add implementation notes from Phase 1 | TBD |
-| TBD | 2.0 | Post-MVP refinements | TBD |
+| 2025-11-30 | 1.2 | Add State Management section addressing TP-Jira bidirectional sync | Engineering |
+| TBD | 1.3 | Add implementation notes from Phase 1 | TBD |
+| TBD | 2.0 | Post-MVP refinements based on real usage | TBD |
 
 ---
 
