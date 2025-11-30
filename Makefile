@@ -63,12 +63,14 @@ help:
 	echo ""; \
 	echo "$(GREEN)Development targets:$(NC)"; \
 	echo "  check                - Run lint + type-check"; \
-	echo "  test                 - Run pytest tests"; \
+	echo "  go-test              - Run Go unit tests"; \
+	echo "  py-test              - Run Python pytest tests"; \
+	echo "  bdd                  - Run BDD tests with behave"; \
+	echo "  test                 - Run all tests (go-test + py-test + bdd)"; \
 	echo "  test-cov             - Run tests with coverage report"; \
 	echo "  lint                 - Check code quality with ruff"; \
 	echo "  type-check           - Run mypy type checker (strict)"; \
 	echo "  format               - Format code with ruff"; \
-	echo "  bdd                  - Run BDD tests with behave"; \
 	echo ""; \
 	echo "$(GREEN)Utility targets:$(NC)"; \
 	echo "  clean                - Remove venv, binaries, and artifacts"; \
@@ -169,11 +171,21 @@ install-global:
 	echo "  objective-deep-dive   - Objective details and assessment"
 	echo "  release-status        - PI progress tracking"
 
-## test: Run pytest tests (requires install-dev)
-test:
-	echo "$(BLUE)Running tests...$(NC)"
+## go-test: Run Go unit tests
+go-test:
+	echo "$(BLUE)Running Go tests...$(NC)"
+	$(GO) test -v ./...
+	echo "$(GREEN)✓ Go tests passed$(NC)"
+
+## py-test: Run Python pytest tests (requires install-dev)
+py-test:
+	echo "$(BLUE)Running Python tests...$(NC)"
 	PATH="$(BIN_DIR):$$PATH" $(UV) run pytest -v tests/
-	echo "$(GREEN)✓ Tests complete$(NC)"
+	echo "$(GREEN)✓ Python tests passed$(NC)"
+
+## test: Run all tests (Go + Python + BDD)
+test: go-test py-test bdd
+	echo "$(GREEN)✓ All tests passed$(NC)"
 
 ## test-cov: Run tests with coverage report
 test-cov:
@@ -348,4 +360,4 @@ uat:
 all: install-dev check test
 	echo "$(GREEN)✓ All done! Everything looks good$(NC)"
 
-.PHONY: venv install install-dev install-global test test-cov lint type-check format bdd check clean run docs show-config all uat help
+.PHONY: venv install install-dev install-global go-test py-test test test-cov lint type-check format bdd check clean run docs show-config all uat help
