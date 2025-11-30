@@ -448,6 +448,348 @@ class TPAPIClient:
             created_date=created_date,
         )
 
+    # Create/Update wrapper methods
+
+    def _run_tpcli_create(
+        self, entity_type: str, data: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """
+        Execute tpcli create command and return parsed JSON results.
+
+        Args:
+            entity_type: TargetProcess entity type (e.g., 'TeamPIObjective')
+            data: Dictionary of entity data to create
+
+        Returns:
+            List containing the created entity as dict
+
+        Raises:
+            TPAPIError: If tpcli command fails or returns invalid JSON
+        """
+        # Convert data to JSON string
+        data_json = json.dumps(data)
+
+        cmd = ["tpcli", "plan", "create", entity_type, "--data", data_json]
+
+        try:
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True,
+            )
+
+            # Extract JSON from output
+            output = result.stdout
+            json_start = output.find("{")
+
+            if json_start == -1:
+                raise TPAPIError(f"No JSON found in tpcli output: {output}")
+
+            json_str = output[json_start:]
+
+            # Single object response
+            return [json.loads(json_str)]
+
+        except subprocess.TimeoutExpired as e:
+            raise TPAPIError(
+                f"tpcli command timed out: {' '.join(cmd)}"
+            ) from e
+        except subprocess.CalledProcessError as e:
+            raise TPAPIError(
+                f"tpcli command failed: {' '.join(cmd)}\nstderr: {e.stderr}"
+            ) from e
+        except json.JSONDecodeError as e:
+            raise TPAPIError(
+                f"Failed to parse tpcli JSON response: {e}\nRaw output: {output}"
+            ) from e
+
+    def _run_tpcli_update(
+        self, entity_type: str, entity_id: int, data: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """
+        Execute tpcli update command and return parsed JSON results.
+
+        Args:
+            entity_type: TargetProcess entity type (e.g., 'TeamPIObjective')
+            entity_id: ID of entity to update
+            data: Dictionary of fields to update
+
+        Returns:
+            List containing the updated entity as dict
+
+        Raises:
+            TPAPIError: If tpcli command fails or returns invalid JSON
+        """
+        # Convert data to JSON string
+        data_json = json.dumps(data)
+
+        cmd = [
+            "tpcli",
+            "plan",
+            "update",
+            entity_type,
+            str(entity_id),
+            "--data",
+            data_json,
+        ]
+
+        try:
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True,
+            )
+
+            # Extract JSON from output
+            output = result.stdout
+            json_start = output.find("{")
+
+            if json_start == -1:
+                raise TPAPIError(f"No JSON found in tpcli output: {output}")
+
+            json_str = output[json_start:]
+
+            # Single object response
+            return [json.loads(json_str)]
+
+        except subprocess.TimeoutExpired as e:
+            raise TPAPIError(
+                f"tpcli command timed out: {' '.join(cmd)}"
+            ) from e
+        except subprocess.CalledProcessError as e:
+            raise TPAPIError(
+                f"tpcli command failed: {' '.join(cmd)}\nstderr: {e.stderr}"
+            ) from e
+        except json.JSONDecodeError as e:
+            raise TPAPIError(
+                f"Failed to parse tpcli JSON response: {e}\nRaw output: {output}"
+            ) from e
+
+    def create_team_objective(
+        self,
+        name: str,
+        team_id: int,
+        release_id: int,
+        **kwargs: Any,
+    ) -> TeamPIObjective:
+        """
+        Create a new Team PI Objective.
+
+        Args:
+            name: Objective name
+            team_id: Team ID
+            release_id: Release ID
+            **kwargs: Optional fields (effort, status, description, owner_id, etc.)
+
+        Returns:
+            Created TeamPIObjective object
+
+        Raises:
+            TPAPIError: If creation fails
+        """
+        # Build payload with required fields
+        payload = {
+            "Name": name,
+            "Team": team_id,
+            "Release": release_id,
+        }
+
+        # Add optional fields if provided
+        if "effort" in kwargs:
+            payload["Effort"] = kwargs["effort"]
+        if "status" in kwargs:
+            payload["Status"] = kwargs["status"]
+        if "description" in kwargs:
+            payload["Description"] = kwargs["description"]
+        if "owner_id" in kwargs:
+            payload["Owner"] = kwargs["owner_id"]
+
+        # Call subprocess
+        response_list = self._run_tpcli_create("TeamPIObjective", payload)
+        response = response_list[0]
+
+        # Parse response and cache
+        objective = self._parse_team_objective(response)
+
+        # Add to cache
+        objectives = self._get_cached("TeamPIObjectives")
+        if objectives is None:
+            objectives = []
+        objectives.append(response)
+        self._set_cached("TeamPIObjectives", objectives)
+
+        return objective
+
+    def update_team_objective(
+        self,
+        objective_id: int,
+        **kwargs: Any,
+    ) -> TeamPIObjective:
+        """
+        Update an existing Team PI Objective.
+
+        Args:
+            objective_id: Objective ID to update
+            **kwargs: Fields to update (name, effort, status, description, etc.)
+
+        Returns:
+            Updated TeamPIObjective object
+
+        Raises:
+            TPAPIError: If update fails
+        """
+        # Build payload with only provided fields
+        payload: dict[str, Any] = {}
+
+        if "name" in kwargs:
+            payload["Name"] = kwargs["name"]
+        if "effort" in kwargs:
+            payload["Effort"] = kwargs["effort"]
+        if "status" in kwargs:
+            payload["Status"] = kwargs["status"]
+        if "description" in kwargs:
+            payload["Description"] = kwargs["description"]
+        if "owner_id" in kwargs:
+            payload["Owner"] = kwargs["owner_id"]
+
+        # Call subprocess
+        response_list = self._run_tpcli_update(
+            "TeamPIObjective", objective_id, payload
+        )
+        response = response_list[0]
+
+        # Parse response and cache
+        objective = self._parse_team_objective(response)
+
+        # Update cache
+        objectives = self._get_cached("TeamPIObjectives")
+        if objectives is None:
+            objectives = []
+        else:
+            # Remove old version
+            objectives = [o for o in objectives if o.get("Id") != objective_id]
+
+        objectives.append(response)
+        self._set_cached("TeamPIObjectives", objectives)
+
+        return objective
+
+    def create_feature(
+        self,
+        name: str,
+        parent_epic_id: int,
+        **kwargs: Any,
+    ) -> Feature:
+        """
+        Create a new Feature.
+
+        Args:
+            name: Feature name
+            parent_epic_id: Parent epic ID
+            **kwargs: Optional fields (effort, status, description, team_id, release_id, etc.)
+
+        Returns:
+            Created Feature object
+
+        Raises:
+            TPAPIError: If creation fails
+        """
+        # Build payload
+        payload = {
+            "Name": name,
+            "Parent": parent_epic_id,
+        }
+
+        # Add optional fields if provided
+        if "effort" in kwargs:
+            payload["Effort"] = kwargs["effort"]
+        if "status" in kwargs:
+            payload["Status"] = kwargs["status"]
+        if "description" in kwargs:
+            payload["Description"] = kwargs["description"]
+        if "team_id" in kwargs:
+            payload["Team"] = kwargs["team_id"]
+        if "release_id" in kwargs:
+            payload["Release"] = kwargs["release_id"]
+        if "owner_id" in kwargs:
+            payload["Owner"] = kwargs["owner_id"]
+
+        # Call subprocess
+        response_list = self._run_tpcli_create("Feature", payload)
+        response = response_list[0]
+
+        # Parse response and cache
+        feature = self._parse_feature(response)
+
+        # Add to cache
+        features = self._get_cached("Features")
+        if features is None:
+            features = []
+        features.append(response)
+        self._set_cached("Features", features)
+
+        return feature
+
+    def update_feature(
+        self,
+        feature_id: int,
+        **kwargs: Any,
+    ) -> Feature:
+        """
+        Update an existing Feature.
+
+        Args:
+            feature_id: Feature ID to update
+            **kwargs: Fields to update (name, effort, status, description, etc.)
+
+        Returns:
+            Updated Feature object
+
+        Raises:
+            TPAPIError: If update fails
+        """
+        # Build payload with only provided fields
+        payload: dict[str, Any] = {}
+
+        if "name" in kwargs:
+            payload["Name"] = kwargs["name"]
+        if "effort" in kwargs:
+            payload["Effort"] = kwargs["effort"]
+        if "status" in kwargs:
+            payload["Status"] = kwargs["status"]
+        if "description" in kwargs:
+            payload["Description"] = kwargs["description"]
+        if "team_id" in kwargs:
+            payload["Team"] = kwargs["team_id"]
+        if "release_id" in kwargs:
+            payload["Release"] = kwargs["release_id"]
+        if "owner_id" in kwargs:
+            payload["Owner"] = kwargs["owner_id"]
+
+        # Call subprocess
+        response_list = self._run_tpcli_update("Feature", feature_id, payload)
+        response = response_list[0]
+
+        # Parse response and cache
+        feature = self._parse_feature(response)
+
+        # Update cache
+        features = self._get_cached("Features")
+        if features is None:
+            features = []
+        else:
+            # Remove old version
+            features = [f for f in features if f.get("Id") != feature_id]
+
+        features.append(response)
+        self._set_cached("Features", features)
+
+        return feature
+
     def clear_cache(self) -> None:
         """Clear all cached results."""
         self._cache.clear()

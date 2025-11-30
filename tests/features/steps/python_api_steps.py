@@ -326,14 +326,6 @@ def step_api_error_raised(context):
     context.error_raised = True
 
 
-@then("error message contains \"{expected_text}\"")
-def step_error_contains(context, expected_text):
-    """Verify error message contains expected text."""
-    if hasattr(context, "api_error"):
-        assert expected_text.lower() in str(context.api_error).lower()
-    context.error_message_matches = True
-
-
 @then("returned object is instance of TeamPIObjective")
 def step_is_team_objective_instance(context):
     """Verify returned object is TeamPIObjective type."""

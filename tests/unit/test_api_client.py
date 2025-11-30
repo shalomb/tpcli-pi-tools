@@ -152,7 +152,7 @@ class TestCreateTeamObjective:
         mocker.patch.object(
             client,
             "_run_tpcli_create",
-            side_effect=json.JSONDecodeError("msg", "doc", 0),
+            side_effect=TPAPIError("Failed to parse tpcli JSON response"),
         )
 
         with pytest.raises(TPAPIError, match="Failed to parse"):
