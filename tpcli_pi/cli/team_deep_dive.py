@@ -112,7 +112,7 @@ def main(
         console.print(f"[bold]Loading team:[/bold] {team}")
         team_obj = client.get_team_by_name(team)
         if not team_obj:
-            console.print(f"[red]Error:[/red] Team not found: {team}", file=sys.stderr)
+            click.echo(f"[red]Error:[/red] Team not found: {team}", err=True)
             sys.exit(1)
 
         # Get objectives
@@ -149,14 +149,14 @@ def main(
         console.print(f"\n[green]✓ Analysis complete[/green]")
 
     except TPAPIError as e:
-        console.print(f"[red]API Error:[/red] {e}", file=sys.stderr)
+        click.echo(f"[red]API Error:[/red] {e}", err=True)
         sys.exit(1)
     except Exception as e:
         if verbose:
             import traceback
 
-            console.print(traceback.format_exc(), file=sys.stderr)
-        console.print(f"[red]Error:[/red] {e}", file=sys.stderr)
+            click.echo(traceback.format_exc(), err=True)
+        click.echo(f"[red]Error:[/red] {e}", err=True)
         sys.exit(1)
 
 

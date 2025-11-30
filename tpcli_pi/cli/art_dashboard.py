@@ -102,7 +102,7 @@ def main(
         console.print(f"[bold]Loading ART:[/bold] {art}")
         art_obj = client.get_art_by_name(art)
         if not art_obj:
-            console.print(f"[red]Error:[/red] ART not found: {art}", file=sys.stderr)
+            click.echo(f"[red]Error:[/red] ART not found: {art}", err=True)
             sys.exit(1)
 
         # Get releases
@@ -140,13 +140,13 @@ def main(
         console.print(f"\n[green]✓ Dashboard complete[/green]")
 
     except TPAPIError as e:
-        console.print(f"[red]API Error:[/red] {e}", file=sys.stderr)
+        click.echo(f"[red]API Error:[/red] {e}", err=True)
         sys.exit(1)
     except Exception as e:
         if verbose:
             import traceback
 
-            console.print(traceback.format_exc(), file=sys.stderr)
+            click.echo(traceback.format_exc(), err=True)
         console.print(
             f"[red]Error:[/red] {e}",
             file=sys.stderr,

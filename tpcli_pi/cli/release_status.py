@@ -158,14 +158,14 @@ def main(
         console.print(f"\n[green]✓ Status report complete[/green]")
 
     except TPAPIError as e:
-        console.print(f"[red]API Error:[/red] {e}", file=sys.stderr)
+        click.echo(f"[red]API Error:[/red] {e}", err=True)
         sys.exit(1)
     except Exception as e:
         if verbose:
             import traceback
 
-            console.print(traceback.format_exc(), file=sys.stderr)
-        console.print(f"[red]Error:[/red] {e}", file=sys.stderr)
+            click.echo(traceback.format_exc(), err=True)
+        click.echo(f"[red]Error:[/red] {e}", err=True)
         sys.exit(1)
 
 
