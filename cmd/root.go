@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	cfgFile  string
-	verbose  bool
+	cfgFile string
+	verbose bool
 )
 
 var rootCmd = &cobra.Command{

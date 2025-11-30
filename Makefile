@@ -248,12 +248,26 @@ show-config:
 uat:
 	echo "$(BLUE)Running UAT: User Acceptance Tests$(NC)"
 	echo ""
-	echo "$(GREEN)Step 1: Verify tpcli config exists$(NC)"
+	echo "$(GREEN)Step 1: Verify tpcli config exists and read defaults$(NC)"
 	if [[ ! -f "$$HOME/.config/tpcli/config.yaml" ]]; then \
 		echo "$(RED)Error: tpcli config not found at ~/.config/tpcli/config.yaml$(NC)"; \
 		exit 1; \
 	fi
 	echo "✓ Config file found: $$HOME/.config/tpcli/config.yaml"
+	DEFAULT_ART=$$(grep "^default-art:" "$$HOME/.config/tpcli/config.yaml" | sed "s/.*: *'//;s/'.*//"); \
+	DEFAULT_TEAM=$$(grep "^default-team:" "$$HOME/.config/tpcli/config.yaml" | sed "s/.*: *'//;s/'.*//"); \
+	if [[ -z "$$DEFAULT_ART" ]]; then \
+		echo "$(YELLOW)⚠ default-art not configured in config.yaml (optional)$(NC)"; \
+		DEFAULT_ART="Data, Analytics and Digital"; \
+	else \
+		echo "✓ Using default-art: $$DEFAULT_ART"; \
+	fi
+	if [[ -z "$$DEFAULT_TEAM" ]]; then \
+		echo "$(YELLOW)⚠ default-team not configured in config.yaml (optional)$(NC)"; \
+		DEFAULT_TEAM="Cloud Enablement & Delivery"; \
+	else \
+		echo "✓ Using default-team: $$DEFAULT_TEAM"; \
+	fi
 	echo ""
 	echo "$(GREEN)Step 2: List available extensions$(NC)"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
@@ -261,8 +275,8 @@ uat:
 	echo ""
 	echo "$(GREEN)Step 3: Test direct extension calls (global install)$(NC)"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	echo "  Testing: team-deep-dive --team 'Cloud Enablement & Delivery'"; \
-	team-deep-dive --team "Cloud Enablement & Delivery" > /tmp/uat-team-deep-dive.out 2>&1; \
+	echo "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'"; \
+	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-team-deep-dive.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-team-deep-dive.out; then \
 		echo "  ✓ team-deep-dive works"; \
 	else \
@@ -273,8 +287,8 @@ uat:
 	echo ""
 	echo "$(GREEN)Step 4: Test tpcli ext wrapper$(NC)"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	echo "  Testing: tpcli ext team-deep-dive -- --team 'Cloud Enablement & Delivery'"; \
-	tpcli ext team-deep-dive -- --team "Cloud Enablement & Delivery" > /tmp/uat-ext-wrapper.out 2>&1; \
+	echo "  Testing: tpcli ext team-deep-dive -- --team '$$DEFAULT_TEAM'"; \
+	tpcli ext team-deep-dive -- --team "$$DEFAULT_TEAM" > /tmp/uat-ext-wrapper.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-ext-wrapper.out; then \
 		echo "  ✓ tpcli ext wrapper works"; \
 	else \
@@ -288,8 +302,8 @@ uat:
 	cwd=$$(pwd); \
 	cd /tmp; \
 	echo "  Current directory: $$(pwd)"; \
-	echo "  Testing: art-dashboard --art 'Data, Analytics and Digital'"; \
-	art-dashboard --art "Data, Analytics and Digital" > /tmp/uat-art-dashboard.out 2>&1; \
+	echo "  Testing: art-dashboard --art '$$DEFAULT_ART'"; \
+	art-dashboard --art "$$DEFAULT_ART" > /tmp/uat-art-dashboard.out 2>&1; \
 	if grep -q "ART Dashboard" /tmp/uat-art-dashboard.out; then \
 		echo "  ✓ art-dashboard works from arbitrary directory"; \
 	else \
@@ -305,8 +319,8 @@ uat:
 	cwd=$$(pwd); \
 	cd ~; \
 	echo "  Current directory: $$(pwd)"; \
-	echo "  Testing: team-deep-dive --team 'Cloud Enablement & Delivery'"; \
-	team-deep-dive --team "Cloud Enablement & Delivery" > /tmp/uat-home-dir.out 2>&1; \
+	echo "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'"; \
+	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-home-dir.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-home-dir.out; then \
 		echo "  ✓ team-deep-dive works from home directory"; \
 	else \
@@ -321,6 +335,7 @@ uat:
 	echo ""
 	echo "Summary:"
 	echo "  ✓ Config file accessible"
+	echo "  ✓ Default values sourced from config (ART: $$DEFAULT_ART, Team: $$DEFAULT_TEAM)"
 	echo "  ✓ Extensions discoverable via tpcli ext list"
 	echo "  ✓ Direct extension calls work (global install)"
 	echo "  ✓ tpcli ext wrapper works"
