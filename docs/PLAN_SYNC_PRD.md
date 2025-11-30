@@ -1007,7 +1007,159 @@ This ensures we focus on core functionality first, then refine UX based on actua
 
 ---
 
-## 10. Architecture Decisions
+## 10. Jira Integration Considerations
+
+### Current State of Jira Integration in TargetProcess
+
+**Investigation Results** (Epic #2018883 "PI-4/25 DevOps Enhancements"):
+
+TargetProcess maintains bidirectional sync with Jira at the Feature level:
+
+1. **Jira Link Mechanism**:
+   - Features in TP have Jira Key field (e.g., `DAD-2652`)
+   - Also maintains: Jira Project, Jira Priority, Jira Issue Type
+   - Bidirectional sync already exists (TP ↔ Jira)
+
+2. **What TP Exposes from Jira**:
+   - Feature metadata: Jira Key, Jira Project, Priority, Issue Type
+   - Acceptance Criteria: Stored as CustomField (RichText/HTML)
+   - Status synchronization: TP EntityState synced with Jira Issue status
+   - Dates: Jira Start Date, Jira Due Date (CustomFields)
+   - Link: TemplatedURL pointing back to Jira
+
+3. **What TP Does NOT Expose**:
+   - **Story decomposition**: No API field for linked Jira stories/sub-tasks
+   - **Story details**: Can't fetch Jira story acceptance criteria from TP API
+   - **Full decomposition**: Jira has Epic → Stories → Tasks tree, TP only shows top-level Feature
+   - **Story status tracking**: Individual story status not reflected in TP
+   - **Cross-Epic dependencies**: Jira cross-issue links not exposed in TP API
+
+### Design Implications for Plan Sync
+
+#### Problem: Missing Story Decomposition
+
+Users want to see full Jira decomposition in the markdown plan for context:
+- Stories under an epic
+- Story acceptance criteria
+- Story status and owner
+- Dependencies between stories
+
+But TargetProcess API doesn't expose this information.
+
+#### Options Considered
+
+**Option A: Include Jira Stories (Requires Direct Jira API Access)**
+- Pros:
+  - Full context for planning
+  - Shows realistic scope
+  - Easy to understand story relationships
+- Cons:
+  - Requires Jira API credentials (separate from TP)
+  - Adds complexity: sync 3 systems (Git ← TP ← Jira)
+  - Conflict resolution becomes harder (which system wins if Jira and TP disagree?)
+  - Implementation effort: ~3-5 days
+  - Maintenance burden: More integrations = more failure points
+
+**Option B: Read-Only Jira Links in Markdown (MVP Approach)**
+- Pros:
+  - Works with existing TP API
+  - Clear signal that story data is external
+  - Minimal implementation effort (~2 hours)
+  - Users can click link to view stories in Jira
+  - Doesn't introduce new system dependencies
+- Cons:
+  - Users must switch to Jira to view story decomposition
+  - No decomposition visible in markdown plan
+  - Less convenient for planning
+  - Users still have to manually connect stories to epics
+
+**Option C: Deferred - Phase B Enhancement**
+- Pros:
+  - Get MVP out faster (no Jira API complexity)
+  - Gather user feedback on what story data is actually needed
+  - Can be added later without breaking existing workflows
+- Cons:
+  - MVP doesn't show story decomposition
+  - Users will ask for this feature immediately
+
+#### Recommendation
+
+**For MVP (Phase A)**: Use **Option B** - Read-Only Jira Links
+- Display Feature Jira Key in markdown as clickable link
+- Include acceptance criteria from TP CustomField
+- Include note in Plan markdown: "View detailed story decomposition in [Jira DAD-2652](https://jira.takeda.com/...)"
+
+**Example Markdown Structure**:
+```markdown
+### Epic: Semantic Versioning & CI/CD
+- **TP ID**: 2018883
+- **Jira Epic**: [DAD-2652](https://jira.takeda.com/browse/DAD-2652)
+- **Owner**: Venkatesh Ravi
+- **Status**: Analyzing
+- **Effort**: 21 pts
+- **Acceptance Criteria**:
+  - CPU and memory limits configured at pod level
+  - Alerting implemented for backend pods
+  - Semantic versioning for Docker images
+  - Unified branching strategy established
+
+For detailed story decomposition, see [Jira Epic DAD-2652](link)
+```
+
+**For Phase B (Post-MVP)**: Direct Jira API Integration
+- Fetch stories directly from Jira API
+- Add H4 subsections for read-only stories
+- Track story status and sync back to TP if needed
+- Handle credential management (Jira token in tpcli config)
+
+### Implementation Notes for MVP
+
+1. **No Code Changes Required** for Jira link inclusion:
+   - TP API already provides Jira Key in CustomFields
+   - Markdown rendering just adds hyperlinks
+
+2. **Accept Criteria Display**:
+   - Parse HTML from CustomField → plain text markdown
+   - Strip HTML tags, convert entities to Unicode
+   - Keep formatting (lists, paragraphs)
+
+3. **Future Consideration**:
+   - If users frequently ask "where are the stories?", implement Phase B
+   - Gather metrics on how often users click Jira links
+   - Survey teams on what story info they need most
+
+### Handling Changes on Pull
+
+When `tpcli plan pull` fetches updated data from TP:
+
+1. **Detected Changes**:
+   - New Jira stories (query TP, not Jira directly)
+   - Story status changed in Jira (reflected in TP)
+   - Acceptance criteria updated (from CustomFields)
+
+2. **Conflict Handling**:
+   - If user edited story section, git 3-way merge handles it
+   - If Jira story removed, TP data won't include it
+   - If new story added in Jira, won't appear in plan unless user manually updates
+
+3. **User Workflow**:
+   - Team edits and refines epics in markdown
+   - Stories stay in Jira (users edit there directly)
+   - `tpcli plan pull` updates acceptance criteria from TP
+   - `tpcli plan push` only updates epics/objectives in TP
+
+### Success Criteria for MVP
+
+- ✅ Jira Epic Key links are displayed in markdown
+- ✅ Acceptance criteria from TP are shown
+- ✅ Users can click Jira link to view decomposition
+- ✅ No dependency on Jira API credentials
+- ✅ Pull/push works without Jira integration
+- ✅ Plan remains readable and manageable in markdown
+
+---
+
+## 11. Architecture Decisions
 
 ### Why Git-Style Conflict Markers?
 
@@ -1067,7 +1219,7 @@ This ensures we focus on core functionality first, then refine UX based on actua
 
 ---
 
-## 11. Glossary
+## 12. Glossary
 
 | Term | Definition |
 |------|-----------|
@@ -1084,12 +1236,13 @@ This ensures we focus on core functionality first, then refine UX based on actua
 
 ---
 
-## 12. Document History
+## 13. Document History
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
 | 2025-11-30 | 1.0 | Initial PRD with all design decisions | Engineering |
-| TBD | 1.1 | Add implementation notes from Phase 1 | TBD |
+| 2025-11-30 | 1.1 | Add Jira Integration Considerations section (Epic #2018883 analysis) | Engineering |
+| TBD | 1.2 | Add implementation notes from Phase 1 | TBD |
 | TBD | 2.0 | Post-MVP refinements | TBD |
 
 ---
