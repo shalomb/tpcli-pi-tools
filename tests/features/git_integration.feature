@@ -163,7 +163,7 @@ Feature: Git Integration for PI Plan Sync
     When user pushes to TargetProcess
     Then objective removal is detected
     And appropriate API call to delete/archive is made
-    Or notification asks user to confirm deletion
+    And notification asks user to confirm deletion
 
   Scenario: Edge case: Objective ID mismatch in markdown
     Given markdown shows "TP ID: 99999" for objective that should be 2019099

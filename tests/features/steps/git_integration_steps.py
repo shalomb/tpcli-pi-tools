@@ -349,12 +349,6 @@ def step_pull_no_conflicts(context):
     context.pull_no_conflict = True
 
 
-@when("user pushes to TargetProcess")
-def step_push(context):
-    """Execute: Push."""
-    context.pushed = True
-
-
 @when("user commits more changes")
 def step_commit_more(context):
     """Execute: Commit more."""

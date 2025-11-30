@@ -184,8 +184,13 @@ py-test:
 	echo "$(GREEN)✓ Python tests passed$(NC)"
 
 ## test: Run all tests (Go + Python + BDD)
-test: go-test py-test bdd
+test: build go-test py-test bdd
 	echo "$(GREEN)✓ All tests passed$(NC)"
+
+## build: Build the tpcli binary
+build:
+	echo "$(BLUE)Building tpcli binary...$(NC)"
+	$(GO) build -o tpcli .
 
 ## test-cov: Run tests with coverage report
 test-cov:
