@@ -23,16 +23,23 @@ Teams managing Agile Release Trains (ARTs) in TargetProcess need to:
 3. Manually re-enter changes back into TargetProcess
 4. Handle conflicts manually when multiple people edit
 
-**Proposed Solution**: `tpcli plan` subcommand with export/import/merge capabilities
+**Proposed Solution**: `tpcli plan` subcommand with git-native workflows
+
+The key insight: **Leverage git's battle-tested merge infrastructure** instead of building custom logic.
+- `TP-PI-xxx` branch tracks TargetProcess state (managed by tpcli)
+- User works in feature branches with normal git workflows
+- `tpcli plan pull/push` handle the TP API ↔ git sync
+- Conflicts resolved using git's familiar 3-way merge
 
 ### Goals
 
-1. **Reduce friction**: Export → edit → import workflow (not copy-paste)
-2. **Enable collaboration**: Git + markdown for team editing
-3. **Prevent data loss**: Automatic conflict detection with 3-way merge
-4. **Maintain source of truth**: TargetProcess remains canonical, markdown is working copy
-5. **Track changes**: Clear audit trail of who changed what
-6. **Scale to ongoing sync**: Support multiple pull/edit/push cycles per PI
+1. **Reduce friction**: Git-native workflow users already know
+2. **Enable collaboration**: Git + markdown for team editing + PR reviews
+3. **Prevent data loss**: Leverage git's merge-base algorithm
+4. **Maintain source of truth**: TargetProcess remains canonical, git tracks changes
+5. **Track changes**: Full git history + commits show who changed what
+6. **Scale to ongoing sync**: Support multiple pull/push cycles per PI with conflict detection
+7. **Simplify implementation**: Use git tools, not custom merge logic
 
 ### Out of Scope (for MVP)
 
@@ -43,114 +50,213 @@ Teams managing Agile Release Trains (ARTs) in TargetProcess need to:
 
 ---
 
-## 2. User Workflows
+## 2. User Workflows (Git-Native Model)
 
-### 2.1 Initial Export Workflow
+### Architecture Overview
 
-**User Goal**: "I want to pull down our team's plan for the upcoming PI so we can refine it together"
-
-```bash
-# 1. Export team objectives and program objectives for context
-tpcli plan export \
-  --release "PI-4/25" \
-  --team "Platform Eco" \
-  --output objectives.md
-
-# Output: objectives.md with YAML frontmatter + markdown sections
-# - Program objectives listed for alignment reference
-# - Team objectives with details
-# - Epics as subsections under objectives
-# - All with TargetProcess IDs preserved
+```
+┌─────────────────────────────────────────────────────────┐
+│ TargetProcess API                                       │
+│ (source of truth for PI planning)                       │
+└──────────────────┬──────────────────────────────────────┘
+                   │ tpcli plan pull/push
+                   ↓
+┌─────────────────────────────────────────────────────────┐
+│ Git Remote (origin)                                     │
+│ ├── TP-PI-4-25-platform-eco (tracking branch)          │
+│ ├── TP-PI-4-25-cloud-enablement (tracking branch)      │
+│ └── feature/* (user feature branches)                  │
+└──────────────────┬──────────────────────────────────────┘
+                   │ git fetch/push
+                   ↓
+┌─────────────────────────────────────────────────────────┐
+│ Local Git Repository                                    │
+│ ├── TP-PI-4-25-platform-eco (local tracking)           │
+│ │   └── objectives.md (fresh from TP)                  │
+│ └── feature/plan-refinement (user working branch)      │
+│     └── objectives.md (with user edits)                │
+└─────────────────────────────────────────────────────────┘
+        User edits here ↑         User commits here ↑
 ```
 
-**Expected Output**:
-- Single markdown file
-- YAML frontmatter with metadata (release, team, export timestamp, IDs)
-- Structured sections for objectives and epics
-- Ready for team editing
+### 2.1 Initialization Workflow
+
+**User Goal**: "I want to set up a tracking branch for our team's PI plan"
+
+```bash
+# Initialize plan tracking for a specific release and team
+tpcli plan init --release "PI-4/25" --team "Platform Eco"
+
+# tpcli actions (hidden from user):
+#   1. Fetch current state from TargetProcess API
+#   2. Create local branch: TP-PI-4-25-platform-eco
+#   3. Commit objectives.md with export from TP
+#   4. Push to origin/TP-PI-4-25-platform-eco
+#   5. Create feature branch: feature/plan-pi-4-25
+#   6. Check out feature branch (user is here now)
+
+# User sees:
+# ✓ Initialized plan tracking for PI-4/25 Platform Eco
+# ✓ Created tracking branch: TP-PI-4-25-platform-eco
+# ✓ Checked out feature branch: feature/plan-pi-4-25
+#
+# You can now:
+#   git add objectives.md
+#   git commit -m "Add observability epic"
+#   tpcli plan push    (when ready to sync to TP)
+#   tpcli plan pull    (if TP was updated by others)
+```
 
 ### 2.2 Edit Workflow
 
-**User Goal**: "I want to edit this plan collaboratively using markdown and git"
+**User Goal**: "I want to edit our plan collaboratively using git"
 
 ```bash
-# 1. User edits objectives.md locally
-#    - Changes objective descriptions
-#    - Renames epics
-#    - Adds new epics (new ### sections)
-#    - Changes effort estimates
-#    - Uses git to track changes
+# Normal git workflow - user is on feature/plan-pi-4-25
+# Edit objectives.md locally
+vim objectives.md
 
+# Review what changed
+git diff objectives.md
+
+# Commit changes
 git add objectives.md
-git commit -m "Refine Platform Eco PI-4/25 plan: add observability epic"
+git commit -m "Refine Platform Governance objective: increase effort 21→34"
 
-# 2. User can preview changes before pushing
-tpcli plan import --file objectives.md --dry-run
+# Make another change
+git commit -m "Add observability epic for monitoring"
 
-# Expected: Shows what will be created/updated in TargetProcess
-# - New epics: [ Monitoring Integration ]
-# - Updated objectives: [ Platform Governance (effort: 21→34) ]
-# - No conflicts detected
+# View all commits since tracking branch
+git log TP-PI-4-25-platform-eco..HEAD
+#   * Add observability epic for monitoring
+#   * Refine Platform Governance objective: increase effort 21→34
+
+# All standard git workflows work:
+# - Revert: git revert <commit>
+# - Amend: git commit --amend
+# - Squash: git rebase -i TP-PI-4-25-platform-eco
+# - Branch: git checkout -b feature/alternative-plan
 ```
 
-### 2.3 Push with Merge Conflict Resolution
+### 2.3 Pull from TargetProcess
 
-**User Goal**: "I want to push my changes but handle conflicts if others edited the same plan"
+**User Goal**: "Someone else updated the plan in TP, I want the latest changes"
 
 ```bash
-# 1. User attempts import
-tpcli plan import --file objectives.md
+# Pull latest from TargetProcess (may have changes from other team members)
+tpcli plan pull
 
-# 2. System detects conflicts (because TP was updated after export)
-# Conflict Example:
-#   Objective "Enable Data Transfer using MSK"
-#   - Local (your edit): effort 13 → 21, owner changed
-#   - Remote (from TP): status changed to "In Progress"
-#   - Base (last synced): effort 13, status "Pending"
+# tpcli actions (under the hood):
+#   1. Switch to TP-PI-4-25-platform-eco branch
+#   2. Fetch fresh state from TargetProcess API
+#   3. Commit fresh export to TP-PI-4-25-platform-eco
+#   4. Push to origin/TP-PI-4-25-platform-eco
+#   5. Switch back to original branch (feature/plan-pi-4-25)
+#   6. Rebase current branch onto updated tracking branch
+#      (git might pause for conflict resolution if needed)
 
-# 3. System shows git-style conflict markers in file
-<<<<<<< local (your edits)
-Effort: 21
-Owner: Sarah Chen
-=======
-Status: In Progress
->>>>>>> remote (from TargetProcess)
+# Possible outcomes:
 
-# 4. User resolves conflicts manually
-# - Edit the file to keep desired state
-# - Remove conflict markers
-# - git add and retry import
+# Case 1: No conflicts (clean rebase)
+# ✓ Rebased feature/plan-pi-4-25 onto TP-PI-4-25-platform-eco
+# Your 2 commits replayed cleanly
 
-tpcli plan import --file objectives.md --no-conflict-check  # Force apply after resolution
+# Case 2: Conflicts detected (both sides edited same objective)
+# ✗ Conflict in objectives.md
+# Fix conflicts in file and run: git rebase --continue
+
+# View conflicts
+cat objectives.md
+# Shows standard git conflict markers:
+# <<<<<<< HEAD (TP-PI-4-25-platform-eco - from TP)
+# Effort: 20
+# =======
+# Effort: 34 (feature/plan-pi-4-25 - your edit)
+# >>>>>>> your-commit-message
+
+# Resolve manually, keep what you want
+# Then mark resolved:
+git add objectives.md
+git rebase --continue
+
+# Result: Your commits now based on latest TP state
 ```
 
-### 2.4 Ongoing Sync (Multiple Cycles)
+### 2.4 Push to TargetProcess
 
-**User Goal**: "We want to track our planning over multiple PIs and sync bidirectionally"
+**User Goal**: "Our planning is complete, push changes back to TargetProcess"
 
 ```bash
-# Week 1: Initial planning
-tpcli plan export --release "PI-4/25" --team "Platform Eco" > pi-4-25-plan.md
-git add pi-4-25-plan.md
+# Push changes to TargetProcess
+tpcli plan push
 
-# Week 2: Team refines plan
-# - Edit pi-4-25-plan.md
-# - Commit changes
-git commit -m "Add new security epic based on compliance review"
+# tpcli actions (under the hood):
+#   1. Identify tracking branch: TP-PI-4-25-platform-eco
+#   2. Calculate diff: what changed since last sync
+#      git diff TP-PI-4-25-platform-eco..HEAD
+#   3. For each change:
+#      - Parse markdown to extract objective/epic updates
+#      - Call TargetProcess API to create/update entities
+#   4. Fetch fresh state from TP (others may have pushed too)
+#   5. Update TP-PI-4-25-platform-eco with latest export
+#   6. Push to origin/TP-PI-4-25-platform-eco
+#   7. Notify user of sync status
 
-# Week 3: Sync changes back to TP
-tpcli plan import --file pi-4-25-plan.md  # Pushes changes back
+# Possible outcomes:
 
-# Week 4: Someone updated TP directly (bug fix, new constraint)
-# Next export detects changes
-tpcli plan export --release "PI-4/25" --team "Platform Eco" > pi-4-25-plan.md
-# System detects conflicts and marks them in the file
+# Case 1: Clean push (no changes in TP since last pull)
+# ✓ Pushed 2 objectives updated, 1 epic created
+# ✓ Updated tracking branch TP-PI-4-25-platform-eco
+# ✓ Pushed to origin/TP-PI-4-25-platform-eco
 
-# Week 5: Resolve conflicts and re-sync
-git add pi-4-25-plan.md
-tpcli plan import --file pi-4-25-plan.md
+# Your feature branch is still ahead with same commits:
+# git log TP-PI-4-25-platform-eco..HEAD
+#   * Add observability epic for monitoring
+#   * Refine Platform Governance objective
 
-# This workflow repeats throughout the PI
+# Case 2: Changes in TP since last pull
+# ✗ Conflict: TP changed while you were pushing
+# Run: tpcli plan pull
+# Then: tpcli plan push
+# (This retriggers the pull→merge→push cycle)
+```
+
+### 2.5 Ongoing Sync Across Multiple Cycles
+
+**User Goal**: "We sync our plan regularly throughout the PI"
+
+```bash
+# Week 1: Initial setup
+tpcli plan init --release "PI-4/25" --team "Platform Eco"
+git commit -m "Initial plan for PI-4/25"
+tpcli plan push
+
+# Week 2: Refinement cycle
+# - Edit objectives/epics
+# - Several commits
+# - Sync back to TP
+git commit -m "Add new security epic"
+git commit -m "Increase effort estimates based on risks"
+tpcli plan pull          # Check for changes from others
+# (resolve conflicts if any)
+tpcli plan push          # Push our changes
+
+# Week 3: More refinement
+# - Someone else updated TP directly (compliance requirement)
+tpcli plan pull          # Get latest
+# (conflicts possible - resolve with git)
+git commit -m "Merge compliance requirements with team plan"
+tpcli plan push          # Sync back
+
+# Week 4: Final push
+# - All commits reviewed
+# - Ready for execution
+git log TP-PI-4-25-platform-eco..HEAD  # See all changes
+tpcli plan pull          # Final sync
+tpcli plan push          # Final push to TP
+
+# Result: Full git history of all planning changes
+# All reflected in TargetProcess as source of truth
 ```
 
 ---
@@ -295,95 +401,167 @@ Create training materials and run sessions for all teams.
 
 ---
 
-## 4. Conflict Detection and 3-Way Merge
+## 4. Git-Native Merge Strategy
 
-### 4.1 Conflict Scenarios
+We leverage **git's built-in 3-way merge** rather than building custom logic. This provides:
+- Battle-tested merge algorithm (`git merge-base`)
+- Standard conflict markers that developers know
+- Integration with existing tools (editors, `git mergetool`, etc.)
+- Full merge history preserved in git
 
-| Scenario | Local | Base | Remote | Resolution |
-|----------|-------|------|--------|------------|
-| User edits objective name | "New Name" | "Old Name" | "Old Name" | ✓ Accept local (clean change) |
-| User edits description | "Updated..." | "Original..." | "Original..." | ✓ Accept local (clean change) |
-| TP updates status | "Pending" | "Pending" | "In Progress" | ✓ Accept remote (TP source) |
-| Both edit effort | 21 | 13 | 20 | ✗ **CONFLICT**: Show 3-way diff |
-| User adds epic | [new] | [none] | [none] | ✓ Accept local (create new) |
-| TP adds epic | [none] | [none] | [new] | ✓ Accept remote (add new) |
-| Both add same epic | [local] | [none] | [remote] | ✗ Check if names match → merge |
-
-### 4.2 3-Way Merge Algorithm
+### 4.1 Merge Bases: The Three Versions
 
 ```
-For each Objective:
-  IF objective.id exists in local AND remote:
-    FOR each field (name, effort, status, owner, description):
-      IF local.field == base.field AND base.field != remote.field:
-        # Remote only changed
-        USE remote.field  (✓ accept)
-      ELIF local.field != base.field AND base.field == remote.field:
-        # Local only changed
-        USE local.field  (✓ accept)
-      ELIF local.field == remote.field:
-        # Both same (or both unchanged)
-        USE local.field  (✓ accept)
-      ELIF local.field != remote.field AND base.field != local.field AND base.field != remote.field:
-        # Both changed differently
-        MARK CONFLICT  (✗ needs manual resolution)
-
-  ELIF objective.id exists only in local:
-    # User added new objective
-    CREATE new objective  (✓ accept)
-
-  ELIF objective.id exists only in remote:
-    # TP added new objective
-    ADD to local markdown  (✓ accept)
+        TP-PI-4-25-platform-eco               (base)
+              ↓
+              ├─→ Feature Branch (local)       (yours)
+              │      └─ Your edits & commits
+              │
+              └─→ Fresh TP State (remote)      (others' changes)
+                     └─ TP API updated by others
 ```
 
-### 4.3 Conflict Markers
+Git's 3-way merge compares:
+1. **Base** (TP-PI-4-25-platform-eco): Last known state when you started
+2. **Local** (feature/plan-pi-4-25): Your commits and edits
+3. **Remote** (TP-PI-4-25-platform-eco after `tpcli plan pull`): Latest from TP API
 
-When conflicts detected, system injects git-style markers into markdown:
+### 4.2 Conflict Scenarios and Git Behavior
+
+| Scenario | Base | Local | Remote | Git Result |
+|----------|------|-------|--------|-----------|
+| User edits name only | "Old Name" | "New Name" | "Old Name" | ✓ Accept local (clean) |
+| TP updates name only | "Old Name" | "Old Name" | "New Name" | ✓ Accept remote (clean) |
+| Both edit name diff | "Old Name" | "New Name" | "Name v2" | ✗ **CONFLICT** |
+| User edits effort | Effort: 13 | Effort: 21 | Effort: 13 | ✓ Accept local (clean) |
+| TP updates status | Status: Pending | Status: Pending | Status: In Progress | ✓ Accept remote (clean) |
+| Both change effort | Effort: 13 | Effort: 21 | Effort: 20 | ✗ **CONFLICT** |
+| User adds epic | [no epic] | [epic A] | [no epic] | ✓ Create epic A (clean) |
+| TP adds epic | [no epic] | [no epic] | [epic B] | ✓ Add epic B to markdown (clean) |
+| Both add epics | [no epic] | [epic A] | [epic B] | ✓ Both added (clean, non-overlapping) |
+
+### 4.3 Git Conflict Markers
+
+When git detects a conflict during rebase, it injects standard markers:
 
 ```markdown
 ## Team Objective: Enable Data Transfer using MSK
 
 **TP ID**: 2019099
 **Status**: Pending
-<<<<<<< local (your edits)
-**Effort**: 21 points
-**Owner**: Sarah Chen
-=======
-**Effort**: 13 points
+<<<<<<< HEAD (TP-PI-4-25-platform-eco - base/remote state from TP)
+**Effort**: 20 points
 **Owner**: John Doe
->>>>>>> remote (from TargetProcess)
+=======
+**Effort**: 34 points
+**Owner**: Sarah Chen
+>>>>>>> feature/plan-pi-4-25 (your commits - local state)
 
 ### Description
 
-(... no conflict in description)
+(... no conflict in this field, clean merge)
 
 ### Epic: MSK Configuration
 
-<<<<<<< local
-Implementation details using AWS MSK...
-=======
-Setup and configuration procedures...
->>>>>>> remote
+(... no conflict here either)
+
+### Epic: New Observability Framework
+
+(... user added this, TP doesn't have it, clean add)
 ```
 
-**User Resolution Process**:
-1. User manually edits the file to resolve conflicts
-2. Removes conflict markers (keep desired version)
-3. Commits to git
-4. Runs `tpcli plan import --file objectives.md` again
-5. If no markers remain, import succeeds
+**What the markers mean**:
+- `<<<<<<< HEAD` = Base state from TP (what's on TP-PI-4-25-platform-eco)
+- `=======` = Divider
+- `>>>>>>> feature/plan-pi-4-25` = Your state (what you committed)
 
-### 4.4 Handling Epics (Features)
+### 4.4 User Resolution Process
 
-**Epics are matched by name** (not ID):
-- If H3 section title exists in both local and remote: 3-way merge
-- If H3 section title only in local: create new epic
-- If H3 section title only in remote: add to local markdown
+When `tpcli plan pull` encounters conflicts:
 
-**Special case - Epic rename**:
-- If epic ID stays same but name changes: treated as update
-- If epic ID changes: might be detected as delete + create
+```bash
+tpcli plan pull
+# ✗ Conflict in objectives.md during rebase
+# Fix manually and run: git rebase --continue
+
+# User opens objectives.md and sees conflict markers
+# Option 1: Keep local version (your edits)
+# Option 2: Keep remote version (from TP)
+# Option 3: Merge both (edit manually)
+
+# Example: Keep your higher effort estimate
+**Effort**: 34 points  # Keep this (your edit)
+**Owner**: Sarah Chen
+
+# Remove conflict markers
+# Then continue rebase:
+git add objectives.md
+git rebase --continue
+
+# Result: Your commits replayed on top of latest TP state
+```
+
+### 4.5 Epic (Feature) Handling
+
+**Epics are matched by section title** (name-based, not ID):
+
+| Scenario | Base | Local | Remote | Result |
+|----------|------|-------|--------|--------|
+| Both have "Epic: Monitoring" | [same] | [same] | [modified] | Merge fields using 3-way merge |
+| User adds "Epic: Security" | [none] | [added] | [none] | ✓ Clean add |
+| TP adds "Epic: Compliance" | [none] | [none] | [added] | ✓ Clean add |
+| Both add different epics | [none] | [Epic A] | [Epic B] | ✓ Both exist, clean |
+| User renames epic | "Old Name" | "New Name" | "Old Name" | ✓ Accept local |
+
+**Edge case - Epic recreation**:
+- If epic deleted from TP but you still have it: Treated as new epic (recreate)
+- If epic deleted locally but exists in TP: Treated as remove (not added back)
+
+### 4.6 What Git Does Automatically (No User Action Needed)
+
+Git's merge-base algorithm automatically resolves:
+
+1. **Non-overlapping changes**
+   ```
+   Base:  Effort: 13, Owner: John
+   Local: Effort: 21, Owner: John     (you changed effort)
+   Remote: Effort: 13, Owner: Sarah   (TP changed owner)
+
+   Result: Effort: 21, Owner: Sarah   ✓ (both changes applied, no conflict)
+   ```
+
+2. **Same change on both sides**
+   ```
+   Base: Status: Pending
+   Local: Status: In Progress
+   Remote: Status: In Progress
+
+   Result: Status: In Progress  ✓ (same result, no conflict)
+   ```
+
+3. **One side unchanged**
+   ```
+   Base: Description: "Old"
+   Local: Description: "Old"           (you didn't change)
+   Remote: Description: "New"          (TP changed it)
+
+   Result: Description: "New"  ✓ (accept remote change, no conflict)
+   ```
+
+### 4.7 When Conflicts Occur
+
+Conflicts only occur when **both sides changed the same field differently**:
+
+```
+Base: Effort: 13
+Local: Effort: 21      (you estimate higher)
+Remote: Effort: 20     (TP estimated 20)
+
+Result: ✗ CONFLICT - Git can't decide which is right
+        User must manually choose or merge
+```
+
+No custom conflict detection needed - git handles it!
 
 ---
 
@@ -391,7 +569,7 @@ Setup and configuration procedures...
 
 ### 5.1 Go CLI Commands (tpcli foundation)
 
-**Required additions to tpcli**:
+**Required additions to tpcli** (pkg/tpclient/client.go + cmd/):
 
 ```bash
 # Create entity
@@ -402,47 +580,117 @@ tpcli create <EntityType> --data '<json>'
 tpcli update <EntityType> <id> --data '<json>'
 # Example: tpcli update TeamPIObjectives 2019099 --data '{"Effort":21}'
 
-# These commands POST to TargetProcess API
+# Implementation notes:
+# - Use existing pkg/tpclient/client.go doRequest() for POST
 # - Return JSON response with created/updated entity
 # - Support --verbose flag for debugging
 # - Proper error handling for validation failures
+# - No custom merge logic needed (git handles it)
 ```
 
 ### 5.2 Python API Client Extensions
 
-**New methods in `TPAPIClient`**:
+**New methods in `tpcli_pi/core/api_client.py`**:
 
 ```python
-# Create operations
-create_team_objective(name, team_id, release_id, ...)
-create_feature(name, team_id, release_id, ...)
-create_program_objective(name, art_id, release_id, ...)
+# Create operations (write to TP API)
+def create_team_objective(name, team_id, release_id, **kwargs) -> TeamPIObjective
+def create_feature(name, team_id, release_id, **kwargs) -> Feature
+def create_program_objective(name, art_id, release_id, **kwargs) -> ProgramPIObjective
 
-# Update operations
-update_team_objective(objective_id, **kwargs)
-update_feature(feature_id, **kwargs)
-update_program_objective(objective_id, **kwargs)
+# Update operations (write to TP API)
+def update_team_objective(objective_id, **kwargs) -> TeamPIObjective
+def update_feature(feature_id, **kwargs) -> Feature
+def update_program_objective(objective_id, **kwargs) -> ProgramPIObjective
 
-# Helpers
-fetch_full_state(release_id, team_id)  # Get base for merge
+# Helpers for detecting what changed
+def get_team_pi_objectives_at_timestamp(team_id, release_id) -> list[TeamPIObjective]
+  # Fetches current state from TP for merge base detection
+```
+
+**Subprocess wrappers** (using tpcli create/update):
+```python
+def _run_tpcli_create(entity_type: str, data: dict) -> dict
+def _run_tpcli_update(entity_type: str, entity_id: int, data: dict) -> dict
 ```
 
 ### 5.3 Plan Sync Module
 
 **New module**: `tpcli_pi/sync/`
 
-**Components**:
-- `markdown_parser.py` - Parse/generate markdown with frontmatter
-- `merger.py` - 3-way merge with conflict detection
-- `validator.py` - Validate required fields before API calls
+**Key components**:
+- `markdown_parser.py` - Parse/generate markdown with YAML frontmatter
+  - `parse_frontmatter(content)` - Extract YAML metadata
+  - `generate_markdown(objectives, program_objectives)` - Create markdown from TP data
+  - `extract_objectives_from_markdown(content)` - Parse user edits
+
+- `markdown_diff.py` - Detect changes between versions
+  - `parse_markdown_diff(diff)` - Parse `git diff` output
+  - `extract_changes(old_md, new_md)` - What was created/updated/deleted
+
+- `validator.py` - Validate before API calls
+  - `validate_objective(data)` - Check required fields
+  - `validate_epic(data)` - Check epic fields
 
 **New CLI**: `tpcli_pi/cli/plan.py`
 
 ```bash
-tpcli plan export --release <name> --team <name> [--output file]
-tpcli plan import --file <path> [--dry-run] [--no-conflict-check]
+tpcli plan init --release <name> --team <name>
+  # Create TP-PI-xxx-xxx tracking branch, feature branch, initial export
+
+tpcli plan pull
+  # Fetch latest from TP, update tracking branch, rebase current branch
+
+tpcli plan push
+  # Parse changes, apply to TP API, update tracking branch
+
+tpcli plan status
+  # Show tracking branch status, commits ahead, etc.
+
 tpcli plan validate --file <path>
+  # Check markdown structure and required fields
 ```
+
+### 5.4 Git Integration (subprocess calls)
+
+**tpcli will call git under the hood**:
+
+```python
+# Key git operations tpcli will execute:
+git checkout -b <branch>
+git switch <branch>
+git add <file>
+git commit -m <message>
+git push origin <branch>
+git diff <base>..<head>
+git log <base>..<head>
+git rebase <branch>
+git status
+git reset --hard
+
+# tpcli handles all git operations internally
+# User never needs to run git commands except:
+# - git commit (for their edits)
+# - git add (before commit)
+# - git rebase --continue (if conflicts during pull)
+```
+
+### 5.5 No Custom Merge Logic Needed
+
+**What we're NOT building**:
+- ✗ Custom 3-way merge algorithm (git provides this)
+- ✗ Conflict detection (git provides this via rebase)
+- ✗ Conflict marker generation (git provides this)
+- ✗ Custom conflict resolution UI (use git's standard markers)
+
+**What git handles automatically**:
+- ✓ Merge-base calculation
+- ✓ Non-conflicting change detection
+- ✓ Automatic merge of non-overlapping changes
+- ✓ Conflict marker injection
+- ✓ Rebase orchestration
+
+This simplifies the codebase significantly!
 
 ---
 
@@ -571,43 +819,94 @@ Feature: Bidirectional Sync Across Multiple Cycles
 
 ---
 
-## 7. Implementation Phases
+## 7. Implementation Phases (Simplified via Git-Native)
 
-### Phase 1: Go CLI Foundation (Week 1)
-- [ ] Implement `tpcli create` command
-- [ ] Implement `tpcli update` command
-- [ ] Test with manual API calls
-- [ ] Verify TargetProcess API responses
+### Phase 1: Go CLI Foundation (3-4 days)
+- [ ] Implement `tpcli create <EntityType> --data '<json>'`
+  - Post to TargetProcess API
+  - Return created entity JSON
+  - Error handling for validation
+- [ ] Implement `tpcli update <EntityType> <id> --data '<json>'`
+  - Post to TargetProcess API
+  - Return updated entity JSON
+  - Error handling
+- [ ] Manual testing with curl equivalents
+- [ ] Verify against real TargetProcess API
 
-### Phase 2: Python Wrapper (Week 1)
-- [ ] Extend TPAPIClient with create/update methods
-- [ ] Add validation before API calls
-- [ ] Test with unit tests
-- [ ] Handle errors gracefully
+### Phase 2: Python Wrapper (2-3 days)
+- [ ] Add `_run_tpcli_create()` subprocess wrapper
+- [ ] Add `_run_tpcli_update()` subprocess wrapper
+- [ ] Implement high-level create methods:
+  - `create_team_objective(name, team_id, release_id, **kwargs)`
+  - `create_feature(name, team_id, release_id, **kwargs)`
+  - `create_program_objective(name, art_id, release_id, **kwargs)`
+- [ ] Implement high-level update methods
+  - `update_team_objective(objective_id, **kwargs)`
+  - `update_feature(feature_id, **kwargs)`
+  - `update_program_objective(objective_id, **kwargs)`
+- [ ] Unit tests for API wrappers
 
-### Phase 3: Markdown Parsing (Week 2)
-- [ ] YAML frontmatter parsing
+### Phase 3: Markdown Parsing & Generation (3-4 days)
+- [ ] YAML frontmatter parsing (using existing pyyaml)
 - [ ] Objective/epic extraction from markdown
+  - Parse H2 sections as objectives
+  - Parse H3 subsections as epics
+  - Extract metadata fields
 - [ ] Markdown generation from TP data
+  - Format objectives with metadata
+  - Format epics as subsections
+  - Include program objectives for reference
 - [ ] Test with various markdown formats
 
-### Phase 4: 3-Way Merge Engine (Week 2)
-- [ ] Base version fetching from TP
-- [ ] 3-way merge algorithm
-- [ ] Conflict detection
-- [ ] Conflict marker injection
+### Phase 4: Git Integration & Plan Commands (4-5 days)
+- [ ] Implement `tpcli plan init --release <name> --team <name>`
+  - Export from TP
+  - Create tracking branch
+  - Create feature branch
+  - Git operations under the hood
+- [ ] Implement `tpcli plan pull`
+  - Fetch from TP API
+  - Update tracking branch
+  - Git rebase (conflicts handled by user + git)
+  - Proactive fetch before any operation
+- [ ] Implement `tpcli plan push`
+  - Parse `git diff` against tracking branch
+  - Apply changes to TP API
+  - Update tracking branch with fresh export
+  - Push to origin
+- [ ] Implement `tpcli plan status`
+  - Show branch status
+  - Show commits ahead
+- [ ] Implement `tpcli plan validate`
+  - Check markdown structure
 
-### Phase 5: CLI Commands (Week 2-3)
-- [ ] `tpcli plan export` command
-- [ ] `tpcli plan import` command
-- [ ] `tpcli plan validate` command
-- [ ] Help text and usage examples
+### Phase 5: Testing (4-5 days)
+- [ ] BDD tests with behave:
+  - Init workflow
+  - Edit and push
+  - Pull and conflict resolution
+  - Multiple cycles
+- [ ] Unit tests:
+  - Markdown parser
+  - Markdown diff parser
+  - Validator
+  - API client wrappers
+- [ ] Integration tests:
+  - Full export → edit → import cycle
+  - Conflict scenarios
+  - Concurrent edits
 
-### Phase 6: Testing & Docs (Week 3)
-- [ ] BDD tests with behave
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] User documentation
+### Phase 6: Documentation & UX Polish (2-3 days)
+- [ ] User guide for plan sync workflow
+- [ ] Example markdown files
+- [ ] Troubleshooting guide (especially conflicts)
+- [ ] API documentation
+- [ ] Help text in `tpcli help` (see Section 9 for UX refinement note)
+- [ ] Architecture documentation
+
+**Total Estimated Effort**: 18-24 days (3-4 weeks)
+
+**Key Simplification**: No custom merge engine → saves ~5-7 days of development
 
 ---
 
@@ -615,52 +914,84 @@ Feature: Bidirectional Sync Across Multiple Cycles
 
 ### MVP (Minimal Viable Product)
 
-- [ ] `tpcli plan export` exports objectives to markdown with correct metadata
-- [ ] `tpcli plan import --dry-run` shows preview without changes
-- [ ] `tpcli plan import` pushes changes back to TargetProcess
-- [ ] Basic conflict detection (shows when both sides changed same field)
-- [ ] Git-style conflict markers injected for manual resolution
+**Commands working**:
+- [ ] `tpcli plan init --release <name> --team <name>` creates tracking + feature branches
+- [ ] `tpcli plan pull` fetches latest from TP and rebases (with conflict handling)
+- [ ] `tpcli plan push` applies changes to TP and updates tracking branch
+- [ ] `tpcli plan status` shows branch and commit status
+- [ ] `tpcli plan validate --file <path>` checks markdown structure
+
+**Data handling**:
+- [ ] Objectives exported to markdown with H2 sections
+- [ ] Epics exported as H3 subsections
+- [ ] YAML frontmatter preserves TP IDs and metadata
 - [ ] All TargetProcess IDs preserved for round-trip sync
 - [ ] Program objectives shown for reference/alignment
 - [ ] Team objectives linked to Program objectives (one-to-one)
-- [ ] Epics (Features) sync as subsections
-- [ ] No data loss or corruption in sync cycle
-- [ ] Helpful error messages for common issues
 
-### Tested
+**Conflict handling**:
+- [ ] Git's native merge handles non-conflicting changes automatically
+- [ ] Standard git conflict markers appear on conflicting fields
+- [ ] User resolves via normal git workflow (`git add`, `git rebase --continue`)
+- [ ] No custom conflict detection needed (git provides this)
 
-- [ ] Export + edit + import cycle works end-to-end
-- [ ] Conflicts detected and resolved correctly
+**Sync integrity**:
+- [ ] No data loss or corruption in export → edit → push cycle
+- [ ] Multiple sync cycles preserve all changes
+- [ ] Git history shows all planning changes
+- [ ] TargetProcess remains source of truth
+
+**Error handling**:
+- [ ] Helpful error messages for missing fields
+- [ ] Clear guidance on conflicts (e.g., "Fix conflicts in objectives.md and run: git rebase --continue")
+- [ ] Validation before API calls
+
+### Tested & Verified
+
+- [ ] Full export → edit → push cycle works end-to-end
+- [ ] Pull detects TP changes and rebases correctly
+- [ ] Git conflicts resolved using standard git tools
 - [ ] Multiple sync cycles don't cause data loss
-- [ ] Git workflow supported (commit-before-sync recommended)
 - [ ] All BDD scenarios passing
+- [ ] Manual testing with real TargetProcess data
 
 ### Documented
 
-- [ ] User guide for export/edit/import workflow
+- [ ] User guide for init → edit → push workflow
 - [ ] Example markdown files showing expected format
-- [ ] Troubleshooting guide for conflicts
-- [ ] API requirements documented
+- [ ] Troubleshooting guide (especially for conflicts)
+- [ ] Branch naming conventions documented
+- [ ] How to resolve git conflicts in the plan file
+- [ ] Help text in `tpcli help` (polish tracked separately, see Section 9)
 - [ ] Architecture decisions recorded (this document)
 
 ---
 
 ## 9. Open Questions & Future Considerations
 
-### Design Questions (Ready to Answer)
+### Design Decisions (Finalized)
 
-1. **Help text**: How should `tpcli help` guide users to the plan commands?
-   - Show in main help? Add to workflow section?
+1. **Commands**: Use `tpcli plan` as subcommand (not separate tool) ✓
+2. **Merge strategy**: Git-native (leverage git's 3-way merge) ✓
+3. **Conflict resolution**: Git-style markers + manual file editing ✓
+4. **Base version**: Always fetch fresh from TP (not stored in file) ✓
+5. **File versioning**: Single file per team+release (git manages history) ✓
+6. **Remote**: Real git remote (team-shareable, not local-only) ✓
+7. **Pull strategy**: Proactive (detect changes automatically) ✓
+8. **Permissions**: Lenient (let TP API validate) ✓
 
-2. **File naming**: Should we suggest `{release}-{team}-plan.md` convention?
-   - Or let users choose?
+### Help Text & UX Polish (Tracked Separately)
 
-3. **Dry-run output**: What should `--dry-run` show exactly?
-   - Unified diff? JSON? Structured table?
+**Note**: Help text design for `tpcli help` will be polished after feature is complete and working.
 
-4. **Conflict resolution UI**: Should we prompt interactively, or expect manual editing?
-   - Current: Manual (edit file, remove markers, re-run)
-   - Alternative: Interactive TUI prompts
+Current approach: Minimal help text in Phase 6
+Future work (post-MVP):
+- [ ] Add workflow diagrams to `tpcli help`
+- [ ] Add examples to `tpcli plan --help`
+- [ ] Create quick-start guide
+- [ ] Polish help text for discoverability
+
+This ensures we focus on core functionality first, then refine UX based on actual usage patterns.
 
 ### Future Enhancements (Post-MVP)
 
