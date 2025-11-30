@@ -32,8 +32,8 @@ dev = [
     "pytest-bdd>=6.1.1",       # Alternative BDD for pytest
 ]
 
-[tool.uv]
-python-version = "3.11"
+[tool.hatch.build.targets.wheel]
+packages = ["tpcli_pi"]
 
 [tool.mypy]
 python_version = "3.11"
