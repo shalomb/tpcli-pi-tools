@@ -1456,8 +1456,39 @@ If MVP shows that conflicts are too frequent or confusing, Phase B should:
 
 ---
 
+## Phase 1 Quick Reference
+
+See `../TODO.md` for Phase 1 implementation guidance.
+
+**Phase 1 Scope** (18-24 hours):
+1. Go CLI: Implement `tpcli create/update` operations
+2. Python Wrapper: Add API client methods for create/update
+3. Markdown Generation: Generate objective/epic markdown from TP
+4. Git Integration: Implement pull/push with 3-way merge
+5. Testing: BDD scenarios for core workflows
+
+**Key Decision Points**:
+- Source of truth: **TargetProcess only** (TP ↔ Jira syncs automatically)
+- Conflict resolution: **Git-native 3-way merge** (Model 1, Section 11)
+- Jira integration: **Read-only links in MVP** (Section 10), full integration in Phase B
+- State management: **Model 1 approved** (Section 11, confirmed with user)
+
+**Phase 2 Indicators** (Deferred):
+- Phase 2A: Jira direct API querying (if MVP shows conflicts too frequent)
+- Phase 2B: Story decomposition in markdown (read-only H4 sections)
+- Phase 2C: Metadata tracking (change attribution, sync timestamps)
+
+For detailed design rationale, refer to sections:
+- Section 1: Overview & goals
+- Section 10: Jira integration analysis
+- Section 11: State management models & decision
+- Section 12: Architecture decisions
+
+---
+
 **Next Steps**:
-1. Review PRD for clarity and completeness
-2. Identify any missing details or ambiguities
-3. Iterate on design based on feedback
-4. When approved, begin Phase 1 implementation
+1. Review Phase 1 scope in TODO.md
+2. Implement Go CLI create/update operations
+3. Add Python wrapper methods
+4. Develop markdown generation & git integration
+5. Validate with BDD test scenarios
