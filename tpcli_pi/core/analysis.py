@@ -1,6 +1,5 @@
 """Analysis logic for capacity, risks, and dependencies."""
 
-from typing import Dict, List, Optional, Set
 
 from tpcli_pi.models.analysis import (
     CapacityAnalysis,
@@ -23,7 +22,7 @@ class CapacityAnalyzer:
     """Analyze team capacity vs. commitments."""
 
     @staticmethod
-    def analyze_team_capacity(team: Team, objectives: List[TeamPIObjective]) -> CapacityAnalysis:
+    def analyze_team_capacity(team: Team, objectives: list[TeamPIObjective]) -> CapacityAnalysis:
         """
         Analyze team capacity utilization.
 
@@ -73,8 +72,8 @@ class RiskAnalyzer:
     @staticmethod
     def assess_objective(
         objective: PIObjective,
-        all_objectives: List[PIObjective],
-        features: Optional[List[Feature]] = None,
+        all_objectives: list[PIObjective],
+        features: list[Feature] | None = None,
     ) -> RiskAssessment:
         """
         Perform comprehensive risk assessment of a PI objective.
@@ -111,9 +110,9 @@ class RiskAnalyzer:
     @staticmethod
     def assess_team(
         team: Team,
-        objectives: List[TeamPIObjective],
-        all_objectives: List[PIObjective],
-        features: Optional[List[Feature]] = None,
+        objectives: list[TeamPIObjective],
+        all_objectives: list[PIObjective],
+        features: list[Feature] | None = None,
     ) -> RiskAssessment:
         """
         Perform comprehensive risk assessment of a team.
@@ -196,7 +195,7 @@ class RiskAnalyzer:
             )
 
     @staticmethod
-    def _check_feature_risks(features: List[Feature], assessment: RiskAssessment) -> None:
+    def _check_feature_risks(features: list[Feature], assessment: RiskAssessment) -> None:
         """Check for risks in linked features/work items."""
         unstarted_features = [f for f in features if f.status not in ["In Progress", "Done"]]
         features_without_owner = [f for f in features if f.owner is None]
@@ -244,7 +243,7 @@ class RiskAnalyzer:
     @staticmethod
     def _check_dependency_risks(
         objective: PIObjective,
-        all_objectives: List[PIObjective],
+        all_objectives: list[PIObjective],
         assessment: RiskAssessment,
     ) -> None:
         """Check for risks related to dependencies (placeholder implementation)."""
@@ -313,8 +312,8 @@ class DependencyAnalyzer:
 
     @staticmethod
     def map_dependencies(
-        objectives: List[PIObjective], build_graph: bool = False
-    ) -> List[DependencyMapping]:
+        objectives: list[PIObjective], build_graph: bool = False
+    ) -> list[DependencyMapping]:
         """
         Map dependencies between objectives.
 
@@ -325,7 +324,7 @@ class DependencyAnalyzer:
         Returns:
             List of dependency mappings
         """
-        dependencies: List[DependencyMapping] = []
+        dependencies: list[DependencyMapping] = []
 
         # This is a placeholder implementation
         # In a full implementation, you would:
@@ -338,8 +337,8 @@ class DependencyAnalyzer:
 
     @staticmethod
     def find_critical_path(
-        objectives: List[PIObjective], dependencies: List[DependencyMapping]
-    ) -> List[PIObjective]:
+        objectives: list[PIObjective], dependencies: list[DependencyMapping]
+    ) -> list[PIObjective]:
         """
         Find critical path through objectives.
 
@@ -362,7 +361,7 @@ class MetricsCalculator:
     """Calculate metrics for reporting and analysis."""
 
     @staticmethod
-    def calculate_team_velocity(team: Team, historical_objectives: List[PIObjective]) -> float:
+    def calculate_team_velocity(team: Team, historical_objectives: list[PIObjective]) -> float:
         """
         Calculate team velocity (avg points completed per PI).
 
@@ -383,9 +382,9 @@ class MetricsCalculator:
 
     @staticmethod
     def calculate_burndown_rate(
-        objectives: List[PIObjective],
+        objectives: list[PIObjective],
         current_progress_pct: float = 0.0,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculate expected burndown rate for PI.
 

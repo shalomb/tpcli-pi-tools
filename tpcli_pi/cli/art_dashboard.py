@@ -2,7 +2,6 @@
 
 import sys
 from datetime import datetime
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -10,19 +9,19 @@ from rich.table import Table
 from rich.text import Text
 
 from tpcli_pi.core.api_client import TPAPIClient, TPAPIError
-from tpcli_pi.core.analysis import CapacityAnalyzer
+from tpcli_pi.core.config import get_default_art
 
 console = Console()
 
 
-def format_date(dt: Optional[datetime]) -> str:
+def format_date(dt: datetime | None) -> str:
     """Format datetime for display."""
     if not dt:
         return "N/A"
     return dt.strftime("%Y-%m-%d")
 
 
-def format_days_remaining(dt: Optional[datetime]) -> str:
+def format_days_remaining(dt: datetime | None) -> str:
     """Format days remaining until date."""
     if not dt:
         return "N/A"
@@ -52,8 +51,9 @@ def get_health_status(risks: int) -> Text:
 @click.command()
 @click.option(
     "--art",
-    required=True,
-    help="Name of Agile Release Train to display",
+    required=False,
+    default=None,
+    help="Name of Agile Release Train to display (defaults to default-art in config)",
 )
 @click.option(
     "--pi",
@@ -77,10 +77,10 @@ def get_health_status(risks: int) -> Text:
     is_flag=True,
     help="Enable verbose output",
 )
-def main(
-    art: str,
+def main(  # noqa: C901
+    art: str | None,
     pi: str,
-    team: Optional[str],
+    team: str | None,
     format: str,  # noqa: A002 - click convention
     verbose: bool,
 ) -> None:
@@ -90,11 +90,22 @@ def main(
     Shows capacity utilization, health status, and risk summary for the entire ART.
 
     Examples:
+        art-dashboard
         art-dashboard --art DAD
         art-dashboard --art DAD --pi current
         art-dashboard --art DAD --team "Example Team"
         art-dashboard --art DAD --format json
     """
+    # Use default ART from config if not provided
+    if not art:
+        art = get_default_art()
+        if not art:
+            click.echo(
+                "[red]Error:[/red] --art not provided and no default-art in config",
+                err=True,
+            )
+            sys.exit(1)
+
     try:
         client = TPAPIClient(verbose=verbose)
 
@@ -106,7 +117,7 @@ def main(
             sys.exit(1)
 
         # Get releases
-        console.print(f"[bold]Loading releases...[/bold]")
+        console.print("[bold]Loading releases...[/bold]")
         releases = client.get_releases(art_obj.id)
 
         # Filter releases by status
@@ -137,7 +148,7 @@ def main(
         else:
             _output_text(art_obj, releases, teams, program_objectives)
 
-        console.print(f"\n[green]✓ Dashboard complete[/green]")
+        console.print("\n[green]✓ Dashboard complete[/green]")
 
     except TPAPIError as e:
         click.echo(f"[red]API Error:[/red] {e}", err=True)
@@ -278,7 +289,6 @@ def _output_json(art_obj, releases, teams, program_objectives) -> None:
 
 def _output_csv(art_obj, releases, teams, program_objectives) -> None:
     """Output dashboard as CSV (multiple tables)."""
-    import csv
 
     console.print("Release,Start Date,End Date,Status")
     for release in releases:

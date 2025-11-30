@@ -3,9 +3,8 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
-from .entities import User, Team, PIObjective
+from .entities import Team, User
 
 
 class RiskLevel(str, Enum):
@@ -49,10 +48,10 @@ class RiskItem:
     category: RiskCategory
     level: RiskLevel
     description: str
-    owner: Optional[User] = None
-    mitigations: List[str] = field(default_factory=list)
-    created_date: Optional[datetime] = None
-    target_resolution_date: Optional[datetime] = None
+    owner: User | None = None
+    mitigations: list[str] = field(default_factory=list)
+    created_date: datetime | None = None
+    target_resolution_date: datetime | None = None
     status: str = "Open"  # Open, In Mitigation, Closed, Accepted
 
 
@@ -68,7 +67,7 @@ class DependencyMapping:
     is_cross_team: bool = False
     is_cross_art: bool = False
     criticality: str = "Medium"  # Low, Medium, High
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 @dataclass
@@ -85,11 +84,11 @@ class CapacityAnalysis:
 
     # Per-person breakdown
     team_members: int = 0
-    effort_per_person: Dict[str, int] = field(default_factory=dict)
-    overcommitted_members: List[str] = field(default_factory=list)
+    effort_per_person: dict[str, int] = field(default_factory=dict)
+    overcommitted_members: list[str] = field(default_factory=list)
 
     # Risk flags
-    risk_flags: List[str] = field(default_factory=list)
+    risk_flags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.total_effort_remaining = self.total_effort_available - self.total_effort_committed
@@ -125,13 +124,13 @@ class RiskAssessment:
     assessment_date: datetime = field(default_factory=datetime.now)
 
     # Risk items
-    identified_risks: List[RiskItem] = field(default_factory=list)
+    identified_risks: list[RiskItem] = field(default_factory=list)
 
     # Dependencies
-    dependencies: List[DependencyMapping] = field(default_factory=list)
-    blocking_dependencies: List[DependencyMapping] = field(default_factory=list)
-    blocked_by_dependencies: List[DependencyMapping] = field(default_factory=list)
-    critical_path_items: List[DependencyMapping] = field(default_factory=list)
+    dependencies: list[DependencyMapping] = field(default_factory=list)
+    blocking_dependencies: list[DependencyMapping] = field(default_factory=list)
+    blocked_by_dependencies: list[DependencyMapping] = field(default_factory=list)
+    critical_path_items: list[DependencyMapping] = field(default_factory=list)
 
     # Metrics
     total_risk_count: int = field(init=False)
@@ -142,7 +141,7 @@ class RiskAssessment:
     health_score: float = field(init=False)  # 0-100, lower is worse
 
     # Recommendations
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
     escalation_required: bool = field(init=False)
 
     def __post_init__(self) -> None:

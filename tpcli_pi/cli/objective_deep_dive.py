@@ -1,12 +1,9 @@
 """Objective Deep-Dive CLI command - US-003."""
 
 import sys
-from datetime import datetime
-from typing import Optional
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -16,7 +13,7 @@ from tpcli_pi.core.api_client import TPAPIClient, TPAPIError
 console = Console()
 
 
-def parse_description(description: Optional[str]) -> dict:
+def parse_description(description: str | None) -> dict:
     """
     Parse structured description into goals, outcomes, acceptance criteria.
 
@@ -107,11 +104,11 @@ def risk_level_style(level: str) -> str:
 )
 def main(
     objective: str,
-    team: Optional[str],
-    art: Optional[str],
+    team: str | None,
+    art: str | None,
     show_dependencies: bool,
     show_risks: bool,
-    compare_to: Optional[str],
+    compare_to: str | None,
     format: str,  # noqa: A002 - click convention
     verbose: bool,
 ) -> None:
@@ -136,10 +133,7 @@ def main(
         obj_list = [o for o in all_objectives if o.name == objective]
 
         if not obj_list:
-            console.print(
-                f"[red]Error:[/red] Objective not found: {objective}",
-                file=sys.stderr,
-            )
+            click.echo(f"[red]Error:[/red] Objective not found: {objective}", err=True)
             sys.exit(1)
 
         obj = obj_list[0]
@@ -167,7 +161,7 @@ def main(
         else:
             _output_text(obj, linked_features, risk_assessment)
 
-        console.print(f"\n[green]✓ Analysis complete[/green]")
+        console.print("\n[green]✓ Analysis complete[/green]")
 
     except TPAPIError as e:
         click.echo(f"[red]API Error:[/red] {e}", err=True)
@@ -181,7 +175,7 @@ def main(
         sys.exit(1)
 
 
-def _output_text(obj, linked_features, risk_assessment) -> None:
+def _output_text(obj, linked_features, risk_assessment) -> None:  # noqa: C901
     """Output analysis as formatted text."""
     console.print(f"\n[bold cyan]=== Objective Deep-Dive: {obj.name} ===[/bold cyan]\n")
 
@@ -249,7 +243,7 @@ def _output_text(obj, linked_features, risk_assessment) -> None:
 
     # Risk Assessment
     if risk_assessment:
-        console.print(f"\n[bold]Risk Assessment[/bold]")
+        console.print("\n[bold]Risk Assessment[/bold]")
         risk_table = Table(show_header=True, header_style="bold magenta")
         risk_table.add_column("Risk", style="cyan")
         risk_table.add_column("Level")
@@ -267,7 +261,7 @@ def _output_text(obj, linked_features, risk_assessment) -> None:
         console.print(risk_table)
 
         # Health Score
-        console.print(f"\n[bold]Health Metrics[/bold]")
+        console.print("\n[bold]Health Metrics[/bold]")
         health_table = Table(show_header=True, header_style="bold magenta")
         health_table.add_column("Metric", style="cyan")
         health_table.add_column("Value")
@@ -380,7 +374,7 @@ def _output_markdown(obj, linked_features, risk_assessment) -> None:
         console.print(f"- **{feat.name}** - {feat.status} ({feat.effort} points)")
 
     if risk_assessment:
-        console.print(f"\n## Risk Assessment\n")
+        console.print("\n## Risk Assessment\n")
         console.print(f"- **Health Score:** {risk_assessment.health_score:.0f}/100")
         console.print(f"- **Critical Risks:** {risk_assessment.critical_risk_count}")
         console.print(f"- **High Risks:** {risk_assessment.high_risk_count}")

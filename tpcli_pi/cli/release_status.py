@@ -2,14 +2,10 @@
 
 import sys
 from datetime import datetime
-from typing import Optional
 
 import click
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress
 from rich.table import Table
-from rich.text import Text
 
 from tpcli_pi.core.api_client import TPAPIClient, TPAPIError
 
@@ -83,11 +79,11 @@ def health_status_symbol(health_score: float) -> str:
 )
 def main(
     release: str,
-    art: Optional[str],
+    art: str | None,
     pi: str,
     include_blockers: bool,
     include_dependencies: bool,
-    compare_to: Optional[str],
+    compare_to: str | None,
     format: str,  # noqa: A002 - click convention
     verbose: bool,
 ) -> None:
@@ -111,10 +107,7 @@ def main(
         release_list = [r for r in releases if r.name == release]
 
         if not release_list:
-            console.print(
-                f"[red]Error:[/red] Release not found: {release}",
-                file=sys.stderr,
-            )
+            click.echo(f"[red]Error:[/red] Release not found: {release}", err=True)
             sys.exit(1)
 
         rel = release_list[0]
@@ -132,13 +125,6 @@ def main(
         console.print("[bold]Loading features...[/bold]")
         features = client.get_features(release_id=rel.id)
 
-        # Calculate metrics
-        total_effort = sum(o.effort for o in program_objectives)
-        completed_effort = sum(
-            o.effort for o in program_objectives if o.status in ["Done", "Accepted"]
-        )
-        progress_pct = (completed_effort / total_effort * 100) if total_effort > 0 else 0
-
         # Output results
         if format == "json":
             _output_json(rel, program_objectives, team_objectives, teams, features)
@@ -147,7 +133,7 @@ def main(
         else:
             _output_text(rel, program_objectives, team_objectives, teams, features)
 
-        console.print(f"\n[green]✓ Status report complete[/green]")
+        console.print("\n[green]✓ Status report complete[/green]")
 
     except TPAPIError as e:
         click.echo(f"[red]API Error:[/red] {e}", err=True)
@@ -235,7 +221,7 @@ def _output_text(rel, program_objectives, team_objectives, teams, features) -> N
         console.print("[yellow]No program objectives found[/yellow]")
 
     # Team Status Summary
-    console.print(f"\n[bold]Team Summary[/bold]")
+    console.print("\n[bold]Team Summary[/bold]")
     team_table = Table(show_header=True, header_style="bold magenta")
     team_table.add_column("Team", style="cyan")
     team_table.add_column("Objectives")
@@ -347,7 +333,7 @@ def _output_markdown(rel, program_objectives, team_objectives, teams, features) 
         status_icon = "✓" if obj.status == "Done" else "▶" if obj.status == "In Progress" else "○"
         console.print(f"{status_icon} **{obj.name}** - {obj.status} ({obj.effort} points)")
 
-    console.print(f"\n## Team Summary\n")
+    console.print("\n## Team Summary\n")
     for team in teams[:10]:
         team_objs = [o for o in team_objectives if o.team_id == team.id]
         console.print(f"- **{team.name}**: {len(team_objs)} objectives")

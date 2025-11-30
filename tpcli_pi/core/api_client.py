@@ -4,13 +4,11 @@ import json
 import re
 import subprocess
 from datetime import datetime
-from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from tpcli_pi.models.entities import (
     AgileReleaseTrain,
     Feature,
-    PIObjective,
     ProgramPIObjective,
     Release,
     Team,
@@ -22,7 +20,6 @@ from tpcli_pi.models.entities import (
 class TPAPIError(Exception):
     """Base exception for TargetProcess API errors."""
 
-    pass
 
 
 class TPAPIClient:
@@ -41,10 +38,10 @@ class TPAPIClient:
             verbose: Enable verbose output for debugging
         """
         self.verbose = verbose
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
 
     @staticmethod
-    def _parse_tp_date(date_str: Optional[str]) -> Optional[datetime]:
+    def _parse_tp_date(date_str: str | None) -> datetime | None:
         """
         Parse TargetProcess date format.
 
@@ -73,8 +70,8 @@ class TPAPIClient:
             return None
 
     def _run_tpcli(
-        self, entity_type: str, args: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        self, entity_type: str, args: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute tpcli command and return parsed JSON results.
 
@@ -93,7 +90,7 @@ class TPAPIClient:
             cmd.extend(args)
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603
                 cmd,
                 capture_output=True,
                 text=True,
@@ -118,21 +115,27 @@ class TPAPIClient:
             else:
                 return [json.loads(json_str)]
 
-        except subprocess.TimeoutExpired:
-            raise TPAPIError(f"tpcli command timed out: {' '.join(cmd)}")
+        except subprocess.TimeoutExpired as e:
+            raise TPAPIError(
+                f"tpcli command timed out: {' '.join(cmd)}"
+            ) from e
         except subprocess.CalledProcessError as e:
-            raise TPAPIError(f"tpcli command failed: {' '.join(cmd)}\nstderr: {e.stderr}")
+            raise TPAPIError(
+                f"tpcli command failed: {' '.join(cmd)}\nstderr: {e.stderr}"
+            ) from e
         except json.JSONDecodeError as e:
-            raise TPAPIError(f"Failed to parse tpcli JSON response: {e}\nRaw output: {output}")
+            raise TPAPIError(
+                f"Failed to parse tpcli JSON response: {e}\nRaw output: {output}"
+            ) from e
 
-    def _cache_key(self, entity_type: str, args: Optional[List[str]] = None) -> str:
+    def _cache_key(self, entity_type: str, args: list[str] | None = None) -> str:
         """Generate cache key for a query."""
         args_str = "_".join(args) if args else ""
         return f"{entity_type}:{args_str}"
 
     def _get_cached(
-        self, entity_type: str, args: Optional[List[str]] = None
-    ) -> Optional[List[Dict[str, Any]]]:
+        self, entity_type: str, args: list[str] | None = None
+    ) -> list[dict[str, Any]] | None:
         """Get result from cache if available."""
         key = self._cache_key(entity_type, args)
         return self._cache.get(key)
@@ -140,8 +143,8 @@ class TPAPIClient:
     def _set_cached(
         self,
         entity_type: str,
-        results: List[Dict[str, Any]],
-        args: Optional[List[str]] = None,
+        results: list[dict[str, Any]],
+        args: list[str] | None = None,
     ) -> None:
         """Store result in cache."""
         key = self._cache_key(entity_type, args)
@@ -149,7 +152,7 @@ class TPAPIClient:
 
     # High-level query methods
 
-    def get_arts(self) -> List[AgileReleaseTrain]:
+    def get_arts(self) -> list[AgileReleaseTrain]:
         """Get all Agile Release Trains."""
         cached = self._get_cached("AgileReleaseTrains")
         if cached is None:
@@ -158,7 +161,7 @@ class TPAPIClient:
 
         return [self._parse_art(item) for item in cached]
 
-    def get_art_by_name(self, name: str) -> Optional[AgileReleaseTrain]:
+    def get_art_by_name(self, name: str) -> AgileReleaseTrain | None:
         """Get ART by name."""
         arts = self.get_arts()
         for art in arts:
@@ -166,7 +169,7 @@ class TPAPIClient:
                 return art
         return None
 
-    def get_teams(self, art_id: Optional[int] = None) -> List[Team]:
+    def get_teams(self, art_id: int | None = None) -> list[Team]:
         """Get all teams, optionally filtered by ART."""
         args = None
         if art_id is not None:
@@ -179,7 +182,7 @@ class TPAPIClient:
 
         return [self._parse_team(item) for item in cached]
 
-    def get_team_by_name(self, name: str, art_id: Optional[int] = None) -> Optional[Team]:
+    def get_team_by_name(self, name: str, art_id: int | None = None) -> Team | None:
         """Get team by name, optionally within specific ART."""
         teams = self.get_teams(art_id)
         for team in teams:
@@ -187,7 +190,7 @@ class TPAPIClient:
                 return team
         return None
 
-    def get_releases(self, art_id: Optional[int] = None) -> List[Release]:
+    def get_releases(self, art_id: int | None = None) -> list[Release]:
         """Get all releases, optionally filtered by ART."""
         args = None
         if art_id is not None:
@@ -200,7 +203,7 @@ class TPAPIClient:
 
         return [self._parse_release(item) for item in cached]
 
-    def get_release_by_name(self, name: str, art_id: Optional[int] = None) -> Optional[Release]:
+    def get_release_by_name(self, name: str, art_id: int | None = None) -> Release | None:
         """Get release by name, optionally within specific ART."""
         releases = self.get_releases(art_id)
         for release in releases:
@@ -209,10 +212,10 @@ class TPAPIClient:
         return None
 
     def get_program_pi_objectives(
-        self, art_id: Optional[int] = None, release_id: Optional[int] = None
-    ) -> List[ProgramPIObjective]:
+        self, art_id: int | None = None, release_id: int | None = None
+    ) -> list[ProgramPIObjective]:
         """Get program-level PI objectives."""
-        args: Optional[List[str]] = None
+        args: list[str] | None = None
         if art_id is not None:
             args = ["--where", f"AgileReleaseTrain.Id eq {art_id}"]
         if release_id is not None:
@@ -232,13 +235,13 @@ class TPAPIClient:
 
     def get_team_pi_objectives(
         self,
-        team_id: Optional[int] = None,
-        art_id: Optional[int] = None,
-        release_id: Optional[int] = None,
-    ) -> List[TeamPIObjective]:
+        team_id: int | None = None,
+        art_id: int | None = None,
+        release_id: int | None = None,
+    ) -> list[TeamPIObjective]:
         """Get team-level PI objectives, optionally filtered by team/ART/release."""
-        args: Optional[List[str]] = None
-        where_clauses: List[str] = []
+        args: list[str] | None = None
+        where_clauses: list[str] = []
 
         if team_id is not None:
             where_clauses.append(f"Team.Id eq {team_id}")
@@ -259,13 +262,13 @@ class TPAPIClient:
 
     def get_features(
         self,
-        team_id: Optional[int] = None,
-        release_id: Optional[int] = None,
-        parent_epic_id: Optional[int] = None,
-    ) -> List[Feature]:
+        team_id: int | None = None,
+        release_id: int | None = None,
+        parent_epic_id: int | None = None,
+    ) -> list[Feature]:
         """Get features, optionally filtered by team/release/epic."""
-        args: Optional[List[str]] = None
-        where_clauses: List[str] = []
+        args: list[str] | None = None
+        where_clauses: list[str] = []
 
         if team_id is not None:
             where_clauses.append(f"Team.Id eq {team_id}")
@@ -286,7 +289,7 @@ class TPAPIClient:
 
     # Parsing methods
 
-    def _parse_user(self, data: Dict[str, Any]) -> User:
+    def _parse_user(self, data: dict[str, Any]) -> User:
         """Parse User entity from API response."""
         return User(
             id=data.get("Id", 0),
@@ -295,7 +298,7 @@ class TPAPIClient:
             email=data.get("Email", ""),
         )
 
-    def _parse_team(self, data: Dict[str, Any]) -> Team:
+    def _parse_team(self, data: dict[str, Any]) -> Team:
         """Parse Team entity from API response."""
         owner = None
         if "Owner" in data and data["Owner"]:
@@ -317,14 +320,14 @@ class TPAPIClient:
             else None,
         )
 
-    def _parse_art(self, data: Dict[str, Any]) -> AgileReleaseTrain:
+    def _parse_art(self, data: dict[str, Any]) -> AgileReleaseTrain:
         """Parse AgileReleaseTrain entity from API response."""
         return AgileReleaseTrain(
             id=data.get("Id", 0),
             name=data.get("Name", ""),
         )
 
-    def _parse_release(self, data: Dict[str, Any]) -> Release:
+    def _parse_release(self, data: dict[str, Any]) -> Release:
         """Parse Release entity from API response."""
         start_date = self._parse_tp_date(data.get("StartDate"))
         end_date = self._parse_tp_date(data.get("EndDate"))
@@ -343,7 +346,7 @@ class TPAPIClient:
             is_current=data.get("IsCurrent", False),
         )
 
-    def _parse_program_objective(self, data: Dict[str, Any]) -> ProgramPIObjective:
+    def _parse_program_objective(self, data: dict[str, Any]) -> ProgramPIObjective:
         """Parse ProgramPIObjective entity from API response."""
         owner = None
         if "Owner" in data and data["Owner"]:
@@ -377,7 +380,7 @@ class TPAPIClient:
             else None,
         )
 
-    def _parse_team_objective(self, data: Dict[str, Any]) -> TeamPIObjective:
+    def _parse_team_objective(self, data: dict[str, Any]) -> TeamPIObjective:
         """Parse TeamPIObjective entity from API response."""
         owner = None
         if "Owner" in data and data["Owner"]:
@@ -410,7 +413,7 @@ class TPAPIClient:
             committed=data.get("Committed", False),
         )
 
-    def _parse_feature(self, data: Dict[str, Any]) -> Feature:
+    def _parse_feature(self, data: dict[str, Any]) -> Feature:
         """Parse Feature entity from API response."""
         owner = None
         if "Owner" in data and data["Owner"]:

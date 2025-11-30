@@ -273,39 +273,39 @@ uat:
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	tpcli ext list
 	printf "\n"
-	printf "$(GREEN)Step 3: Test direct extension calls (global install)$(NC)\n"
+	printf "$(GREEN)Step 3: Test direct extension calls WITHOUT explicit options (uses defaults)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	printf "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'\n"; \
-	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-team-deep-dive.out 2>&1; \
+	printf "  Testing: team-deep-dive (should use default-team from config)\n"; \
+	team-deep-dive > /tmp/uat-team-deep-dive.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-team-deep-dive.out; then \
-		printf "  $(GREEN)✓ team-deep-dive works$(NC)\n"; \
+		printf "  $(GREEN)✓ team-deep-dive works with defaults$(NC)\n"; \
 	else \
 		printf "  $(RED)✗ team-deep-dive failed$(NC)\n"; \
 		cat /tmp/uat-team-deep-dive.out; \
 		exit 1; \
 	fi
 	printf "\n"
-	printf "$(GREEN)Step 4: Test tpcli ext wrapper$(NC)\n"
+	printf "$(GREEN)Step 4: Test tpcli ext wrapper (without explicit options)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	printf "  Testing: tpcli ext team-deep-dive -- --team '$$DEFAULT_TEAM'\n"; \
-	tpcli ext team-deep-dive -- --team "$$DEFAULT_TEAM" > /tmp/uat-ext-wrapper.out 2>&1; \
+	printf "  Testing: tpcli ext team-deep-dive (should use default-team from config)\n"; \
+	tpcli ext team-deep-dive > /tmp/uat-ext-wrapper.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-ext-wrapper.out; then \
-		printf "  $(GREEN)✓ tpcli ext wrapper works$(NC)\n"; \
+		printf "  $(GREEN)✓ tpcli ext wrapper works with defaults$(NC)\n"; \
 	else \
 		printf "  $(RED)✗ tpcli ext wrapper failed$(NC)\n"; \
 		cat /tmp/uat-ext-wrapper.out; \
 		exit 1; \
 	fi
 	printf "\n"
-	printf "$(GREEN)Step 5: Test from arbitrary directory (/tmp)$(NC)\n"
+	printf "$(GREEN)Step 5: Test from arbitrary directory (/tmp) without explicit options$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	cwd=$$(pwd); \
 	cd /tmp; \
 	printf "  Current directory: $$(pwd)\n"; \
-	printf "  Testing: art-dashboard --art '$$DEFAULT_ART'\n"; \
-	art-dashboard --art "$$DEFAULT_ART" > /tmp/uat-art-dashboard.out 2>&1; \
+	printf "  Testing: art-dashboard (should use default-art from config)\n"; \
+	art-dashboard > /tmp/uat-art-dashboard.out 2>&1; \
 	if grep -q "ART Dashboard" /tmp/uat-art-dashboard.out; then \
-		printf "  $(GREEN)✓ art-dashboard works from arbitrary directory$(NC)\n"; \
+		printf "  $(GREEN)✓ art-dashboard works from arbitrary directory with defaults$(NC)\n"; \
 	else \
 		printf "  $(RED)✗ art-dashboard failed$(NC)\n"; \
 		cat /tmp/uat-art-dashboard.out; \
@@ -314,15 +314,15 @@ uat:
 	fi; \
 	cd "$$cwd"
 	printf "\n"
-	printf "$(GREEN)Step 6: Test from home directory ($$HOME)$(NC)\n"
+	printf "$(GREEN)Step 6: Test from home directory ($$HOME) without explicit options$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	cwd=$$(pwd); \
 	cd ~; \
 	printf "  Current directory: $$(pwd)\n"; \
-	printf "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'\n"; \
-	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-home-dir.out 2>&1; \
+	printf "  Testing: team-deep-dive (should use default-team from config)\n"; \
+	team-deep-dive > /tmp/uat-home-dir.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-home-dir.out; then \
-		printf "  $(GREEN)✓ team-deep-dive works from home directory$(NC)\n"; \
+		printf "  $(GREEN)✓ team-deep-dive works from home directory with defaults$(NC)\n"; \
 	else \
 		printf "  $(RED)✗ team-deep-dive failed from home$(NC)\n"; \
 		cat /tmp/uat-home-dir.out; \
@@ -337,10 +337,11 @@ uat:
 	printf "  $(GREEN)✓ Config file accessible$(NC)\n"
 	printf "  $(GREEN)✓ Default values sourced from config (ART: $$DEFAULT_ART, Team: $$DEFAULT_TEAM)$(NC)\n"
 	printf "  $(GREEN)✓ Extensions discoverable via tpcli ext list$(NC)\n"
-	printf "  $(GREEN)✓ Direct extension calls work (global install)$(NC)\n"
-	printf "  $(GREEN)✓ tpcli ext wrapper works$(NC)\n"
-	printf "  $(GREEN)✓ Extensions work from /tmp directory$(NC)\n"
-	printf "  $(GREEN)✓ Extensions work from home directory$(NC)\n"
+	printf "  $(GREEN)✓ Commands work WITHOUT explicit options (use config defaults)$(NC)\n"
+	printf "  $(GREEN)✓ team-deep-dive works with defaults from config$(NC)\n"
+	printf "  $(GREEN)✓ art-dashboard works with defaults from config$(NC)\n"
+	printf "  $(GREEN)✓ tpcli ext wrapper works with defaults$(NC)\n"
+	printf "  $(GREEN)✓ Extensions work from arbitrary directories (/tmp, home)$(NC)\n"
 	printf "  $(GREEN)✓ No venv pollution - tools isolated$(NC)\n"
 
 ## all: Install dev tools and run all checks

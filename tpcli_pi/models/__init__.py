@@ -1,19 +1,19 @@
 """Data models for PI Planning tools."""
 
-from .entities import (
-    AgileReleaseTrain,
-    Release,
-    Team,
-    ProgramPIObjective,
-    TeamPIObjective,
-    Feature,
-    User,
-)
 from .analysis import (
     CapacityAnalysis,
+    DependencyMapping,
     RiskAssessment,
     RiskItem,
-    DependencyMapping,
+)
+from .entities import (
+    AgileReleaseTrain,
+    Feature,
+    ProgramPIObjective,
+    Release,
+    Team,
+    TeamPIObjective,
+    User,
 )
 
 __all__ = [

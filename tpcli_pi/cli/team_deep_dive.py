@@ -1,8 +1,6 @@
 """Team Deep-Dive CLI command - US-002."""
 
 import sys
-from datetime import datetime
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -11,6 +9,7 @@ from rich.text import Text
 
 from tpcli_pi.core.analysis import CapacityAnalyzer, RiskAnalyzer
 from tpcli_pi.core.api_client import TPAPIClient, TPAPIError
+from tpcli_pi.core.config import get_default_team
 
 console = Console()
 
@@ -42,8 +41,9 @@ def risk_level_color(level: str) -> str:
 @click.command()
 @click.option(
     "--team",
-    required=True,
-    help="Name of team to analyze",
+    required=False,
+    default=None,
+    help="Name of team to analyze (defaults to default-team in config)",
 )
 @click.option(
     "--art",
@@ -84,8 +84,8 @@ def risk_level_color(level: str) -> str:
     help="Enable verbose output",
 )
 def main(
-    team: str,
-    art: Optional[str],
+    team: str | None,
+    art: str | None,
     pi: str,
     depth: str,
     include_risks: bool,
@@ -100,11 +100,22 @@ def main(
     and Jira alignment.
 
     Examples:
+        team-deep-dive
         team-deep-dive --team "Example Team"
         team-deep-dive --team "Example Team" --art DAD
         team-deep-dive --team "Example Team" --include-risks
         team-deep-dive --team "Example Team" --depth comprehensive
     """
+    # Use default team from config if not provided
+    if not team:
+        team = get_default_team()
+        if not team:
+            click.echo(
+                "[red]Error:[/red] --team not provided and no default-team in config",
+                err=True,
+            )
+            sys.exit(1)
+
     try:
         client = TPAPIClient(verbose=verbose)
 
@@ -146,7 +157,7 @@ def main(
         else:
             _output_text(team_obj, capacity, objectives, features, risk_assessment)
 
-        console.print(f"\n[green]✓ Analysis complete[/green]")
+        console.print("\n[green]✓ Analysis complete[/green]")
 
     except TPAPIError as e:
         click.echo(f"[red]API Error:[/red] {e}", err=True)
@@ -255,7 +266,7 @@ def _output_text(team_obj, capacity, objectives, features, risk_assessment) -> N
 
     # Risk Summary
     if risk_assessment:
-        console.print(f"\n[bold]Risk Assessment[/bold]")
+        console.print("\n[bold]Risk Assessment[/bold]")
         risk_table = Table(show_header=True, header_style="bold magenta")
         risk_table.add_column("Risk Level", style="cyan")
         risk_table.add_column("Count")

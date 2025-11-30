@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List
 from enum import Enum
 
 
@@ -36,11 +35,11 @@ class Team:
 
     id: int
     name: str
-    owner: Optional[User] = None
+    owner: User | None = None
     member_count: int = 0
     is_active: bool = True
-    art_id: Optional[int] = None
-    art_name: Optional[str] = None
+    art_id: int | None = None
+    art_name: str | None = None
 
 
 @dataclass
@@ -49,7 +48,7 @@ class AgileReleaseTrain:
 
     id: int
     name: str
-    teams: List[Team] = field(default_factory=list)
+    teams: list[Team] = field(default_factory=list)
 
 
 @dataclass
@@ -91,33 +90,33 @@ class PIObjective:
     id: int
     name: str
     status: EntityStatus
-    owner: Optional[User] = None
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    release_id: Optional[int] = None
-    release_name: Optional[str] = None
+    owner: User | None = None
+    description: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    release_id: int | None = None
+    release_name: str | None = None
     effort: int = 0
-    created_date: Optional[datetime] = None
-    created_by: Optional[User] = None
+    created_date: datetime | None = None
+    created_by: User | None = None
 
 
 @dataclass
 class ProgramPIObjective(PIObjective):
     """Represents a Program-level PI Objective."""
 
-    art_id: Optional[int] = None
-    art_name: Optional[str] = None
+    art_id: int | None = None
+    art_name: str | None = None
 
 
 @dataclass
 class TeamPIObjective(PIObjective):
     """Represents a Team-level PI Objective."""
 
-    team_id: Optional[int] = None
-    team_name: Optional[str] = None
+    team_id: int | None = None
+    team_name: str | None = None
     committed: bool = False
-    program_objective_id: Optional[int] = None
+    program_objective_id: int | None = None
 
 
 @dataclass
@@ -128,11 +127,11 @@ class Feature:
     name: str
     status: EntityStatus
     effort: int = 0
-    owner: Optional[User] = None
-    team: Optional[Team] = None
-    release_id: Optional[int] = None
-    release_name: Optional[str] = None
-    parent_epic_id: Optional[int] = None
-    parent_epic_name: Optional[str] = None
-    description: Optional[str] = None
-    created_date: Optional[datetime] = None
+    owner: User | None = None
+    team: Team | None = None
+    release_id: int | None = None
+    release_name: str | None = None
+    parent_epic_id: int | None = None
+    parent_epic_name: str | None = None
+    description: str | None = None
+    created_date: datetime | None = None
