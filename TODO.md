@@ -19,9 +19,30 @@ Implement core bidirectional sync: pull objectives/epics from TP, edit in markdo
 Phase 1 Goal: tpcli plan pull → edit markdown → tpcli plan push workflow
 ```
 
+### Foundational Infrastructure (Completed)
+
+✅ **Testing Strategy** (`docs/TESTING_STRATEGY.md`)
+- BDD-TDD cohesion for Go and Python
+- TDD: "Are we building it right?" (unit tests)
+- BDD: "Are we building the right thing?" (acceptance tests)
+- Unified `make test` wrapper (go-test + py-test + bdd)
+- Test && Commit || Repeat cycle pattern
+
+✅ **Section 1.1: Go CLI Create/Update** (COMPLETE)
+- BDD scenarios define requirements
+- 11 unit tests verify implementation
+- Step definitions enable BDD testing
+- All tests passing ✓
+
 ### 1.1 Go CLI: Create/Update Operations
 
-**Files**: `cmd/plan.go`, `pkg/tpclient/client.go`, `tests/unit/test_tpclient.go`
+**Status**: ✅ COMPLETE
+
+**Files**:
+- Implementation: `cmd/plan.go`, `pkg/tpclient/client.go`
+- Unit Tests: `pkg/tpclient/client_test.go` (11 tests, all passing)
+- BDD Scenarios: `tests/features/go_cli_create_update.feature`
+- Step Definitions: `tests/features/steps/go_cli_steps.py`
 
 **BDD Scenarios** (write first):
 ```gherkin
