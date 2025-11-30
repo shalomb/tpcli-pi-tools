@@ -2,9 +2,9 @@
 release: "PI-4/25"
 team: "Platform Eco"
 art: "Data, Analytics and Digital"
-exported_at: "2025-11-30T20:13:43.937231+00:00"
+exported_at: "2025-11-30T20:33:11.652580+00:00"
 objectives:
-  - {"id": 2019099, "name": "Platform governance", "synced_at": "2025-11-30T20:13:43.937231+00:00"}
+  - {"id": 2019099, "name": "Platform governance", "synced_at": "2025-11-30T20:33:11.652580+00:00"}
 ---
 
 # PI-PI-4/25 Plan - Platform Eco

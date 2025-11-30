@@ -528,3 +528,163 @@ class TestErrorHandling:
                 team_id=1935991,
                 release_id=1942235,
             )
+
+
+class TestBulkOperations:
+    """Tests for bulk create/update operations."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    @pytest.fixture
+    def mock_objective_response(self):
+        """Mock response for a single objective."""
+        return {
+            "Id": 12345,
+            "Name": "Test Objective",
+            "Team": {"Id": 1935991, "Name": "Platform Eco"},
+            "Release": {"Id": 1942235, "Name": "PI-4/25"},
+            "Effort": 34,
+            "Status": "Pending",
+        }
+
+    def test_bulk_create_team_objectives_success(self, client, mock_objective_response, mocker):
+        """Test bulk creating multiple objectives."""
+        # Mock responses for 3 objectives
+        mock_responses = [
+            {**mock_objective_response, "Id": 100, "Name": "Objective 1"},
+            {**mock_objective_response, "Id": 101, "Name": "Objective 2"},
+            {**mock_objective_response, "Id": 102, "Name": "Objective 3"},
+        ]
+
+        # Mock the subprocess call
+        call_count = [0]
+        def mock_create(entity_type, payload):
+            response = mock_responses[call_count[0]]
+            call_count[0] += 1
+            return [response]
+
+        mocker.patch.object(
+            client,
+            "_run_tpcli_create",
+            side_effect=mock_create,
+        )
+
+        # Bulk create
+        objectives_to_create = [
+            {"name": "Objective 1", "team_id": 1935991, "release_id": 1942235},
+            {"name": "Objective 2", "team_id": 1935991, "release_id": 1942235},
+            {"name": "Objective 3", "team_id": 1935991, "release_id": 1942235},
+        ]
+
+        results = client.bulk_create_team_objectives(objectives_to_create)
+
+        # Verify results
+        assert len(results) == 3
+        assert all(isinstance(r, TeamPIObjective) for r in results)
+        assert results[0].id == 100
+        assert results[1].id == 101
+        assert results[2].id == 102
+
+    def test_bulk_create_empty_list(self, client):
+        """Test bulk create with empty list returns empty."""
+        results = client.bulk_create_team_objectives([])
+        assert results == []
+
+    def test_bulk_update_team_objectives_success(self, client, mock_objective_response, mocker):
+        """Test bulk updating multiple objectives."""
+        # Mock responses for 3 updates
+        mock_responses = [
+            {**mock_objective_response, "Id": 100, "Effort": 40},
+            {**mock_objective_response, "Id": 101, "Effort": 50},
+            {**mock_objective_response, "Id": 102, "Effort": 60},
+        ]
+
+        call_count = [0]
+        def mock_update(entity_type, obj_id, payload):
+            response = mock_responses[call_count[0]]
+            call_count[0] += 1
+            return [response]
+
+        mocker.patch.object(
+            client,
+            "_run_tpcli_update",
+            side_effect=mock_update,
+        )
+
+        # Bulk update
+        updates = [
+            {"id": 100, "effort": 40},
+            {"id": 101, "effort": 50},
+            {"id": 102, "effort": 60},
+        ]
+
+        results = client.bulk_update_team_objectives(updates)
+
+        # Verify results
+        assert len(results) == 3
+        assert all(isinstance(r, TeamPIObjective) for r in results)
+        assert results[0].effort == 40
+        assert results[1].effort == 50
+        assert results[2].effort == 60
+
+    def test_bulk_update_empty_list(self, client):
+        """Test bulk update with empty list returns empty."""
+        results = client.bulk_update_team_objectives([])
+        assert results == []
+
+    def test_bulk_create_updates_cache(self, client, mock_objective_response, mocker):
+        """Test bulk create updates the cache."""
+        mock_responses = [
+            {**mock_objective_response, "Id": 200, "Name": "Obj1"},
+            {**mock_objective_response, "Id": 201, "Name": "Obj2"},
+        ]
+
+        call_count = [0]
+        def mock_create(entity_type, payload):
+            response = mock_responses[call_count[0]]
+            call_count[0] += 1
+            return [response]
+
+        mocker.patch.object(client, "_run_tpcli_create", side_effect=mock_create)
+
+        objectives = [
+            {"name": "Obj1", "team_id": 1935991, "release_id": 1942235},
+            {"name": "Obj2", "team_id": 1935991, "release_id": 1942235},
+        ]
+
+        client.bulk_create_team_objectives(objectives)
+
+        # Verify cache is updated
+        cached = client._get_cached("TeamPIObjectives")
+        assert cached is not None
+        assert len(cached) == 2
+
+    def test_bulk_update_updates_cache(self, client, mock_objective_response, mocker):
+        """Test bulk update updates the cache."""
+        mock_responses = [
+            {**mock_objective_response, "Id": 200, "Effort": 45},
+            {**mock_objective_response, "Id": 201, "Effort": 55},
+        ]
+
+        call_count = [0]
+        def mock_update(entity_type, obj_id, payload):
+            response = mock_responses[call_count[0]]
+            call_count[0] += 1
+            return [response]
+
+        mocker.patch.object(client, "_run_tpcli_update", side_effect=mock_update)
+
+        updates = [
+            {"id": 200, "effort": 45},
+            {"id": 201, "effort": 55},
+        ]
+
+        client.bulk_update_team_objectives(updates)
+
+        # Verify cache is updated
+        cached = client._get_cached("TeamPIObjectives")
+        assert cached is not None
+        assert len(cached) == 2
