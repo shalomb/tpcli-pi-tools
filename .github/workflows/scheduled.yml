@@ -1,0 +1,166 @@
+name: Scheduled Checks
+
+on:
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+        go-version: ["1.21", "1.22"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip uv
+        pip install -e ".[dev]"
+        go mod download
+
+    - name: Run comprehensive tests
+      run: |
+        make test
+        make test-cov
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        flags: nightly
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "Nightly tests failed!"
+        exit 1
+
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Check for outdated Python dependencies
+      run: |
+        python -m pip install --upgrade pip uv
+        uv pip compile --upgrade pyproject.toml -o /tmp/requirements-check.txt || true
+        python -m pip install pip-audit
+        pip-audit
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: "1.21"
+
+    - name: Check for outdated Go dependencies
+      run: |
+        go list -u -m all
+
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit semgrep safety
+
+    - name: Run Python security checks
+      run: |
+        bandit -r tpcli_pi/ -f json -o /tmp/bandit-report.json || true
+        safety check --json || true
+
+    - name: Run semgrep
+      run: |
+        semgrep --config=p/security-audit --json -o /tmp/semgrep-report.json tpcli_pi/ || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-reports
+        path: /tmp/*-report.json
+
+  performance-baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip uv
+        pip install -e ".[dev]" pytest-benchmark
+
+    - name: Run performance tests
+      run: |
+        python -m pytest tests/unit/ -v --benchmark-only || true
+
+    - name: Archive performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: .benchmarks/
+
+  code-quality-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install radon pylint
+
+    - name: Generate code metrics
+      run: |
+        echo "# Code Quality Metrics" > /tmp/metrics.md
+        echo "" >> /tmp/metrics.md
+        echo "## Cyclomatic Complexity" >> /tmp/metrics.md
+        radon cc tpcli_pi/ -a -nb >> /tmp/metrics.md
+        echo "" >> /tmp/metrics.md
+        echo "## Maintainability Index" >> /tmp/metrics.md
+        radon mi tpcli_pi/ -nb >> /tmp/metrics.md
+
+    - name: Upload metrics
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-metrics
+        path: /tmp/metrics.md

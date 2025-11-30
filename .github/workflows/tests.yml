@@ -1,0 +1,73 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+        go-version: ["1.21", "1.22"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Go dependencies
+      run: go mod download
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip uv
+        pip install -e ".[dev]"
+
+    - name: Run Go tests
+      run: |
+        go test -v ./... -coverprofile=coverage.out
+        go tool cover -func=coverage.out
+
+    - name: Run Python unit tests
+      run: |
+        python -m pytest tests/unit/ -v --cov=tpcli_pi --cov-report=xml
+
+    - name: Run BDD tests
+      run: |
+        python -m behave tests/features/
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.python-version }}-${{ matrix.go-version }}
+        path: |
+          coverage.xml
+          htmlcov/
+
+  test-summary:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Test Results
+        run: echo "All tests completed. Check artifacts for detailed results."
