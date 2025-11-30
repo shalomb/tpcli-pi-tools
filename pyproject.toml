@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tpcli-pi-tools"
+version = "0.1.0"
+description = "PI Planning tools for TargetProcess - ART leadership dashboards and analysis"
+readme = "scripts/README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Shalom Bhooshi", email = "s.bbooshi@gmail.com"}
+]
+
+dependencies = [
+    "click>=8.1.0",           # CLI framework
+    "pydantic>=2.0.0",         # Data validation and settings
+    "requests>=2.31.0",        # HTTP client (not needed yet, tpcli handles it)
+    "rich>=13.0.0",            # Terminal formatting (tables, colors)
+    "typer>=0.9.0",            # Alternative CLI (Optional, can use click)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",           # Testing framework
+    "pytest-cov>=4.1.0",       # Coverage reporting
+    "mypy>=1.5.0",             # Static type checking
+    "ruff>=0.1.0",             # Linter and formatter
+    "black>=23.0.0",           # Code formatter (optional with ruff)
+    "behave>=1.2.6",           # BDD test runner (Cucumber for Python)
+    "pytest-bdd>=6.1.1",       # Alternative BDD for pytest
+]
+
+[tool.uv]
+python-version = "3.11"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "behave.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C90",   # mccabe
+    "S",     # flake8-bandit
+    "T10",   # flake8-debugger
+    "PIE",   # flake8-pie
+    "Q",     # flake8-quotes
+]
+ignore = ["E501"]  # Line too long (handled by formatter)
+
+[tool.ruff.lint.isort]
+known-first-party = ["tpcli_pi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=tpcli_pi --cov-report=html --cov-report=term-missing"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[project.scripts]
+art-dashboard = "tpcli_pi.cli.art_dashboard:main"
+team-deep-dive = "tpcli_pi.cli.team_deep_dive:main"
+objective-deep-dive = "tpcli_pi.cli.objective_deep_dive:main"
+release-status = "tpcli_pi.cli.release_status:main"
