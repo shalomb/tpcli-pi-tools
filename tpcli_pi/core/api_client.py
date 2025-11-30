@@ -301,7 +301,6 @@ class TPAPIClient:
         return AgileReleaseTrain(
             id=data.get("Id", 0),
             name=data.get("Name", ""),
-            description=data.get("Description"),
         )
 
     def _parse_release(self, data: Dict[str, Any]) -> Release:

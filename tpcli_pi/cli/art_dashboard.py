@@ -147,10 +147,7 @@ def main(
             import traceback
 
             click.echo(traceback.format_exc(), err=True)
-        console.print(
-            f"[red]Error:[/red] {e}",
-            file=sys.stderr,
-        )
+        click.echo(f"[red]Error:[/red] {e}", err=True)
         sys.exit(1)
 
 
