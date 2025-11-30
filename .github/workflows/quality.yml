@@ -25,18 +25,18 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip uv
-        pip install -e ".[dev]"
+        python -m pip install --upgrade uv
+        uv sync --all-extras
         go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
     - name: Lint Python with ruff
-      run: ruff check tpcli_pi/ tests/
+      run: uv run ruff check tpcli_pi/ tests/
 
     - name: Format check with ruff
-      run: ruff format --check tpcli_pi/ tests/
+      run: uv run ruff format --check tpcli_pi/ tests/
 
     - name: Type checking with mypy
-      run: mypy tpcli_pi/ --strict --ignore-missing-imports
+      run: uv run mypy tpcli_pi/ --strict --ignore-missing-imports
 
     - name: Lint Go with golangci-lint
       run: golangci-lint run ./...
@@ -57,14 +57,14 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install bandit semgrep
+        python -m pip install --upgrade uv
+        uv sync --all-extras
 
     - name: Run bandit (security linting)
-      run: bandit -r tpcli_pi/ -f json -o bandit-report.json || true
+      run: uv run bandit -r tpcli_pi/ -f json -o bandit-report.json || true
 
     - name: Run semgrep security checks
-      run: semgrep --config=p/owasp-top-ten --json -o semgrep-report.json tpcli_pi/ || true
+      run: uv run semgrep --config=p/owasp-top-ten --json -o semgrep-report.json tpcli_pi/ || true
 
     - name: Upload security reports
       uses: actions/upload-artifact@v3
@@ -87,17 +87,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install radon
+        python -m pip install --upgrade uv
+        uv sync --all-extras
 
     - name: Check code complexity
       run: |
         echo "=== Cyclomatic Complexity ==="
-        radon cc tpcli_pi/ -a -nb
+        uv run radon cc tpcli_pi/ -a -nb
         echo "=== Maintainability Index ==="
-        radon mi tpcli_pi/ -nb
+        uv run radon mi tpcli_pi/ -nb
 
     - name: Check for code duplication
       run: |
-        python -m pip install pylint
-        pylint --disable=all --enable=duplicate-code tpcli_pi/ || true
+        uv run pylint --disable=all --enable=duplicate-code tpcli_pi/ || true

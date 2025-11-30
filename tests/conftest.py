@@ -2,11 +2,18 @@
 pytest configuration and fixtures.
 
 Configures VCR for cassette recording/replay, logging, and shared fixtures.
+Also imports git repository test fixtures.
 """
 
 import pytest
 import vcr
 import os
+from tests.fixtures.git_helper import (
+    git_repo,
+    git_repo_with_branches,
+    git_repo_tracking_scenario,
+    git_repo_conflict_scenario,
+)
 
 
 # Configure VCR for golden file cassette recording/replay
