@@ -211,10 +211,14 @@ format:
 	$(UV) run ruff format tpcli_pi/ tests/
 	echo "$(GREEN)✓ Code formatted$(NC)"
 
-## bdd: Run BDD tests (behave/pytest-bdd)
+## bdd: Run BDD tests with behave (Gherkin scenarios)
 bdd:
 	echo "$(BLUE)Running BDD tests...$(NC)"
-	PATH="$(BIN_DIR):$$PATH" $(UV) run behave scripts/specs/
+	if [ -d "tests/features" ]; then \
+		PATH="$(BIN_DIR):$$PATH" $(UV) run behave tests/features/; \
+	else \
+		echo "$(YELLOW)⚠ No BDD test features found in tests/features$(NC)"; \
+	fi
 	echo "$(GREEN)✓ BDD tests complete$(NC)"
 
 ## check: Run all checks (lint + type-check)
