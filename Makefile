@@ -246,102 +246,102 @@ show-config:
 
 ## uat: User Acceptance Testing - test extensions work from any directory
 uat:
-	echo "$(BLUE)Running UAT: User Acceptance Tests$(NC)"
-	echo ""
-	echo "$(GREEN)Step 1: Verify tpcli config exists and read defaults$(NC)"
+	printf "$(BLUE)Running UAT: User Acceptance Tests$(NC)\n"
+	printf "\n"
+	printf "$(GREEN)Step 1: Verify tpcli config exists and read defaults$(NC)\n"
 	if [[ ! -f "$$HOME/.config/tpcli/config.yaml" ]]; then \
-		echo "$(RED)Error: tpcli config not found at ~/.config/tpcli/config.yaml$(NC)"; \
+		printf "$(RED)Error: tpcli config not found at ~/.config/tpcli/config.yaml$(NC)\n"; \
 		exit 1; \
 	fi
-	echo "✓ Config file found: $$HOME/.config/tpcli/config.yaml"
+	printf "✓ Config file found: $$HOME/.config/tpcli/config.yaml\n"
 	DEFAULT_ART=$$(grep "^default-art:" "$$HOME/.config/tpcli/config.yaml" | sed "s/.*: *'//;s/'.*//"); \
 	DEFAULT_TEAM=$$(grep "^default-team:" "$$HOME/.config/tpcli/config.yaml" | sed "s/.*: *'//;s/'.*//"); \
 	if [[ -z "$$DEFAULT_ART" ]]; then \
-		echo "$(YELLOW)⚠ default-art not configured in config.yaml (optional)$(NC)"; \
+		printf "$(YELLOW)⚠ default-art not configured in config.yaml (optional)$(NC)\n"; \
 		DEFAULT_ART="Data, Analytics and Digital"; \
 	else \
-		echo "✓ Using default-art: $$DEFAULT_ART"; \
+		printf "✓ Using default-art: $$DEFAULT_ART\n"; \
 	fi
 	if [[ -z "$$DEFAULT_TEAM" ]]; then \
-		echo "$(YELLOW)⚠ default-team not configured in config.yaml (optional)$(NC)"; \
+		printf "$(YELLOW)⚠ default-team not configured in config.yaml (optional)$(NC)\n"; \
 		DEFAULT_TEAM="Cloud Enablement & Delivery"; \
 	else \
-		echo "✓ Using default-team: $$DEFAULT_TEAM"; \
+		printf "✓ Using default-team: $$DEFAULT_TEAM\n"; \
 	fi
-	echo ""
-	echo "$(GREEN)Step 2: List available extensions$(NC)"
+	printf "\n"
+	printf "$(GREEN)Step 2: List available extensions$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	tpcli ext list
-	echo ""
-	echo "$(GREEN)Step 3: Test direct extension calls (global install)$(NC)"
+	printf "\n"
+	printf "$(GREEN)Step 3: Test direct extension calls (global install)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	echo "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'"; \
+	printf "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'\n"; \
 	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-team-deep-dive.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-team-deep-dive.out; then \
-		echo "  ✓ team-deep-dive works"; \
+		printf "  $(GREEN)✓ team-deep-dive works$(NC)\n"; \
 	else \
-		echo "  $(RED)✗ team-deep-dive failed$(NC)"; \
+		printf "  $(RED)✗ team-deep-dive failed$(NC)\n"; \
 		cat /tmp/uat-team-deep-dive.out; \
 		exit 1; \
 	fi
-	echo ""
-	echo "$(GREEN)Step 4: Test tpcli ext wrapper$(NC)"
+	printf "\n"
+	printf "$(GREEN)Step 4: Test tpcli ext wrapper$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
-	echo "  Testing: tpcli ext team-deep-dive -- --team '$$DEFAULT_TEAM'"; \
+	printf "  Testing: tpcli ext team-deep-dive -- --team '$$DEFAULT_TEAM'\n"; \
 	tpcli ext team-deep-dive -- --team "$$DEFAULT_TEAM" > /tmp/uat-ext-wrapper.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-ext-wrapper.out; then \
-		echo "  ✓ tpcli ext wrapper works"; \
+		printf "  $(GREEN)✓ tpcli ext wrapper works$(NC)\n"; \
 	else \
-		echo "  $(RED)✗ tpcli ext wrapper failed$(NC)"; \
+		printf "  $(RED)✗ tpcli ext wrapper failed$(NC)\n"; \
 		cat /tmp/uat-ext-wrapper.out; \
 		exit 1; \
 	fi
-	echo ""
-	echo "$(GREEN)Step 5: Test from arbitrary directory (/tmp)$(NC)"
+	printf "\n"
+	printf "$(GREEN)Step 5: Test from arbitrary directory (/tmp)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	cwd=$$(pwd); \
 	cd /tmp; \
-	echo "  Current directory: $$(pwd)"; \
-	echo "  Testing: art-dashboard --art '$$DEFAULT_ART'"; \
+	printf "  Current directory: $$(pwd)\n"; \
+	printf "  Testing: art-dashboard --art '$$DEFAULT_ART'\n"; \
 	art-dashboard --art "$$DEFAULT_ART" > /tmp/uat-art-dashboard.out 2>&1; \
 	if grep -q "ART Dashboard" /tmp/uat-art-dashboard.out; then \
-		echo "  ✓ art-dashboard works from arbitrary directory"; \
+		printf "  $(GREEN)✓ art-dashboard works from arbitrary directory$(NC)\n"; \
 	else \
-		echo "  $(RED)✗ art-dashboard failed$(NC)"; \
+		printf "  $(RED)✗ art-dashboard failed$(NC)\n"; \
 		cat /tmp/uat-art-dashboard.out; \
 		cd "$$cwd"; \
 		exit 1; \
 	fi; \
 	cd "$$cwd"
-	echo ""
-	echo "$(GREEN)Step 6: Test from home directory ($$HOME)$(NC)"
+	printf "\n"
+	printf "$(GREEN)Step 6: Test from home directory ($$HOME)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	cwd=$$(pwd); \
 	cd ~; \
-	echo "  Current directory: $$(pwd)"; \
-	echo "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'"; \
+	printf "  Current directory: $$(pwd)\n"; \
+	printf "  Testing: team-deep-dive --team '$$DEFAULT_TEAM'\n"; \
 	team-deep-dive --team "$$DEFAULT_TEAM" > /tmp/uat-home-dir.out 2>&1; \
 	if grep -q "Team Overview" /tmp/uat-home-dir.out; then \
-		echo "  ✓ team-deep-dive works from home directory"; \
+		printf "  $(GREEN)✓ team-deep-dive works from home directory$(NC)\n"; \
 	else \
-		echo "  $(RED)✗ team-deep-dive failed from home$(NC)"; \
+		printf "  $(RED)✗ team-deep-dive failed from home$(NC)\n"; \
 		cat /tmp/uat-home-dir.out; \
 		cd "$$cwd"; \
 		exit 1; \
 	fi; \
 	cd "$$cwd"
-	echo ""
-	echo "$(GREEN)✓ UAT Complete: All tests passed!$(NC)"
-	echo ""
-	echo "Summary:"
-	echo "  ✓ Config file accessible"
-	echo "  ✓ Default values sourced from config (ART: $$DEFAULT_ART, Team: $$DEFAULT_TEAM)"
-	echo "  ✓ Extensions discoverable via tpcli ext list"
-	echo "  ✓ Direct extension calls work (global install)"
-	echo "  ✓ tpcli ext wrapper works"
-	echo "  ✓ Extensions work from /tmp directory"
-	echo "  ✓ Extensions work from home directory"
-	echo "  ✓ No venv pollution - tools isolated"
+	printf "\n"
+	printf "$(GREEN)✓ UAT Complete: All tests passed!$(NC)\n"
+	printf "\n"
+	printf "Summary:\n"
+	printf "  $(GREEN)✓ Config file accessible$(NC)\n"
+	printf "  $(GREEN)✓ Default values sourced from config (ART: $$DEFAULT_ART, Team: $$DEFAULT_TEAM)$(NC)\n"
+	printf "  $(GREEN)✓ Extensions discoverable via tpcli ext list$(NC)\n"
+	printf "  $(GREEN)✓ Direct extension calls work (global install)$(NC)\n"
+	printf "  $(GREEN)✓ tpcli ext wrapper works$(NC)\n"
+	printf "  $(GREEN)✓ Extensions work from /tmp directory$(NC)\n"
+	printf "  $(GREEN)✓ Extensions work from home directory$(NC)\n"
+	printf "  $(GREEN)✓ No venv pollution - tools isolated$(NC)\n"
 
 ## all: Install dev tools and run all checks
 all: install-dev check test
