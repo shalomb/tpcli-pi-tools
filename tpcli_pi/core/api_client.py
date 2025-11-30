@@ -1,7 +1,9 @@
 """TargetProcess API client wrapper for PI planning tools."""
 
 import json
+import re
 import subprocess
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
@@ -40,6 +42,35 @@ class TPAPIClient:
         """
         self.verbose = verbose
         self._cache: Dict[str, Any] = {}
+
+    @staticmethod
+    def _parse_tp_date(date_str: Optional[str]) -> Optional[datetime]:
+        """
+        Parse TargetProcess date format.
+
+        TargetProcess returns dates in format: /Date(milliseconds+timezone)/
+        Example: /Date(1738450043000-0500)/
+
+        Args:
+            date_str: Date string in TP format or ISO format
+
+        Returns:
+            Parsed datetime object or None if invalid/empty
+        """
+        if not date_str:
+            return None
+
+        # Try TargetProcess format: /Date(milliseconds+timezone)/
+        tp_match = re.match(r'/Date\((\d+)([+-]\d{4})?\)/', date_str)
+        if tp_match:
+            milliseconds = int(tp_match.group(1))
+            return datetime.fromtimestamp(milliseconds / 1000)
+
+        # Try ISO format
+        try:
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            return None
 
     def _run_tpcli(
         self, entity_type: str, args: Optional[List[str]] = None
@@ -305,21 +336,8 @@ class TPAPIClient:
 
     def _parse_release(self, data: Dict[str, Any]) -> Release:
         """Parse Release entity from API response."""
-        from datetime import datetime
-
-        start_date_str = data.get("StartDate")
-        end_date_str = data.get("EndDate")
-
-        start_date = (
-            datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-            if start_date_str
-            else None
-        )
-        end_date = (
-            datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-            if end_date_str
-            else None
-        )
+        start_date = self._parse_tp_date(data.get("StartDate"))
+        end_date = self._parse_tp_date(data.get("EndDate"))
 
         return Release(
             id=data.get("Id", 0),
@@ -337,31 +355,13 @@ class TPAPIClient:
 
     def _parse_program_objective(self, data: Dict[str, Any]) -> ProgramPIObjective:
         """Parse ProgramPIObjective entity from API response."""
-        from datetime import datetime
-
         owner = None
         if "Owner" in data and data["Owner"]:
             owner = self._parse_user(data["Owner"])
 
-        start_date_str = data.get("StartDate")
-        end_date_str = data.get("EndDate")
-        created_date_str = data.get("CreatedDate")
-
-        start_date = (
-            datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-            if start_date_str
-            else None
-        )
-        end_date = (
-            datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-            if end_date_str
-            else None
-        )
-        created_date = (
-            datetime.fromisoformat(created_date_str.replace("Z", "+00:00"))
-            if created_date_str
-            else None
-        )
+        start_date = self._parse_tp_date(data.get("StartDate"))
+        end_date = self._parse_tp_date(data.get("EndDate"))
+        created_date = self._parse_tp_date(data.get("CreatedDate"))
 
         return ProgramPIObjective(
             id=data.get("Id", 0),
@@ -389,31 +389,13 @@ class TPAPIClient:
 
     def _parse_team_objective(self, data: Dict[str, Any]) -> TeamPIObjective:
         """Parse TeamPIObjective entity from API response."""
-        from datetime import datetime
-
         owner = None
         if "Owner" in data and data["Owner"]:
             owner = self._parse_user(data["Owner"])
 
-        start_date_str = data.get("StartDate")
-        end_date_str = data.get("EndDate")
-        created_date_str = data.get("CreatedDate")
-
-        start_date = (
-            datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-            if start_date_str
-            else None
-        )
-        end_date = (
-            datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-            if end_date_str
-            else None
-        )
-        created_date = (
-            datetime.fromisoformat(created_date_str.replace("Z", "+00:00"))
-            if created_date_str
-            else None
-        )
+        start_date = self._parse_tp_date(data.get("StartDate"))
+        end_date = self._parse_tp_date(data.get("EndDate"))
+        created_date = self._parse_tp_date(data.get("CreatedDate"))
 
         return TeamPIObjective(
             id=data.get("Id", 0),
@@ -442,8 +424,6 @@ class TPAPIClient:
 
     def _parse_feature(self, data: Dict[str, Any]) -> Feature:
         """Parse Feature entity from API response."""
-        from datetime import datetime
-
         owner = None
         if "Owner" in data and data["Owner"]:
             owner = self._parse_user(data["Owner"])
@@ -452,12 +432,7 @@ class TPAPIClient:
         if "Team" in data and data["Team"]:
             team = self._parse_team(data["Team"])
 
-        created_date_str = data.get("CreatedDate")
-        created_date = (
-            datetime.fromisoformat(created_date_str.replace("Z", "+00:00"))
-            if created_date_str
-            else None
-        )
+        created_date = self._parse_tp_date(data.get("CreatedDate"))
 
         return Feature(
             id=data.get("Id", 0),
