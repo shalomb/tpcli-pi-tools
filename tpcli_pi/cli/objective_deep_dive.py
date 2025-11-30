@@ -36,18 +36,12 @@ def parse_description(description: Optional[str]) -> dict:
     for line in description.split("\n"):
         line_lower = line.lower().strip()
 
-        if any(
-            keyword in line_lower
-            for keyword in ["goal", "objective", "business need"]
-        ):
+        if any(keyword in line_lower for keyword in ["goal", "objective", "business need"]):
             current_section = "goals"
-        elif any(
-            keyword in line_lower for keyword in ["outcome", "result", "deliver"]
-        ):
+        elif any(keyword in line_lower for keyword in ["outcome", "result", "deliver"]):
             current_section = "outcomes"
         elif any(
-            keyword in line_lower
-            for keyword in ["acceptance", "criteria", "definition of done"]
+            keyword in line_lower for keyword in ["acceptance", "criteria", "definition of done"]
         ):
             current_section = "acceptance_criteria"
 
@@ -161,9 +155,7 @@ def main(
         risk_assessment = None
         if show_risks:
             console.print("[bold]Assessing risks...[/bold]")
-            risk_assessment = RiskAnalyzer.assess_objective(
-                obj, all_objectives, linked_features
-            )
+            risk_assessment = RiskAnalyzer.assess_objective(obj, all_objectives, linked_features)
 
         # Output results
         if format == "json":
@@ -269,9 +261,7 @@ def _output_text(obj, linked_features, risk_assessment) -> None:
                 risk.title,
                 Text(risk.level.value, style=risk_level_style(risk.level.value)),
                 risk.category.value,
-                risk.description[:50] + "..."
-                if len(risk.description) > 50
-                else risk.description,
+                risk.description[:50] + "..." if len(risk.description) > 50 else risk.description,
             )
 
         console.print(risk_table)
@@ -300,9 +290,7 @@ def _output_text(obj, linked_features, risk_assessment) -> None:
         )
         health_table.add_row(
             "Escalation Required",
-            Text("YES", style="red bold")
-            if risk_assessment.escalation_required
-            else "No",
+            Text("YES", style="red bold") if risk_assessment.escalation_required else "No",
         )
 
         console.print(health_table)
@@ -396,14 +384,14 @@ def _output_markdown(obj, linked_features, risk_assessment) -> None:
         console.print(f"- **Health Score:** {risk_assessment.health_score:.0f}/100")
         console.print(f"- **Critical Risks:** {risk_assessment.critical_risk_count}")
         console.print(f"- **High Risks:** {risk_assessment.high_risk_count}")
-        console.print(f"- **Escalation Required:** {'Yes' if risk_assessment.escalation_required else 'No'}\n")
+        console.print(
+            f"- **Escalation Required:** {'Yes' if risk_assessment.escalation_required else 'No'}\n"
+        )
 
         if risk_assessment.identified_risks:
             console.print("### Identified Risks\n")
             for risk in risk_assessment.identified_risks:
-                console.print(
-                    f"- **{risk.title}** ({risk.level.value}): {risk.description}"
-                )
+                console.print(f"- **{risk.title}** ({risk.level.value}): {risk.description}")
 
         if risk_assessment.recommendations:
             console.print("\n### Recommendations\n")

@@ -23,9 +23,7 @@ class CapacityAnalyzer:
     """Analyze team capacity vs. commitments."""
 
     @staticmethod
-    def analyze_team_capacity(
-        team: Team, objectives: List[TeamPIObjective]
-    ) -> CapacityAnalysis:
+    def analyze_team_capacity(team: Team, objectives: List[TeamPIObjective]) -> CapacityAnalysis:
         """
         Analyze team capacity utilization.
 
@@ -56,9 +54,7 @@ class CapacityAnalyzer:
             effort_per_person_estimate = total_effort_committed / team.member_count
             for i in range(team.member_count):
                 member_name = f"Member {i + 1}"
-                analysis.effort_per_person[member_name] = int(
-                    effort_per_person_estimate
-                )
+                analysis.effort_per_person[member_name] = int(effort_per_person_estimate)
 
                 # Flag if individual is overcommitted
                 if effort_per_person_estimate > estimated_effort_per_person:
@@ -139,14 +135,10 @@ class RiskAnalyzer:
 
         # Aggregate risks from all team objectives
         for objective in objectives:
-            obj_assessment = RiskAnalyzer.assess_objective(
-                objective, all_objectives, features
-            )
+            obj_assessment = RiskAnalyzer.assess_objective(objective, all_objectives, features)
             assessment.identified_risks.extend(obj_assessment.identified_risks)
             assessment.dependencies.extend(obj_assessment.dependencies)
-            assessment.blocking_dependencies.extend(
-                obj_assessment.blocking_dependencies
-            )
+            assessment.blocking_dependencies.extend(obj_assessment.blocking_dependencies)
 
         # Check for team-level risks
         if len(objectives) == 0:
@@ -178,9 +170,7 @@ class RiskAnalyzer:
         return assessment
 
     @staticmethod
-    def _check_estimation_risks(
-        objective: PIObjective, assessment: RiskAssessment
-    ) -> None:
+    def _check_estimation_risks(objective: PIObjective, assessment: RiskAssessment) -> None:
         """Check for risks related to effort estimation."""
         if objective.effort == 0:
             assessment.identified_risks.append(
@@ -206,13 +196,9 @@ class RiskAnalyzer:
             )
 
     @staticmethod
-    def _check_feature_risks(
-        features: List[Feature], assessment: RiskAssessment
-    ) -> None:
+    def _check_feature_risks(features: List[Feature], assessment: RiskAssessment) -> None:
         """Check for risks in linked features/work items."""
-        unstarted_features = [
-            f for f in features if f.status not in ["In Progress", "Done"]
-        ]
+        unstarted_features = [f for f in features if f.status not in ["In Progress", "Done"]]
         features_without_owner = [f for f in features if f.owner is None]
         features_without_effort = [f for f in features if f.effort == 0]
 
@@ -376,9 +362,7 @@ class MetricsCalculator:
     """Calculate metrics for reporting and analysis."""
 
     @staticmethod
-    def calculate_team_velocity(
-        team: Team, historical_objectives: List[PIObjective]
-    ) -> float:
+    def calculate_team_velocity(team: Team, historical_objectives: List[PIObjective]) -> float:
         """
         Calculate team velocity (avg points completed per PI).
 

@@ -92,23 +92,17 @@ class CapacityAnalysis:
     risk_flags: List[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self.total_effort_remaining = (
-            self.total_effort_available - self.total_effort_committed
-        )
+        self.total_effort_remaining = self.total_effort_available - self.total_effort_committed
         if self.total_effort_available > 0:
             self.capacity_utilization_percent = (
                 self.total_effort_committed / self.total_effort_available
             ) * 100
-            self.available_capacity_percent = (
-                100 - self.capacity_utilization_percent
-            )
+            self.available_capacity_percent = 100 - self.capacity_utilization_percent
         else:
             self.capacity_utilization_percent = 0
             self.available_capacity_percent = 0
 
-        self.is_overcommitted = (
-            self.total_effort_committed > self.total_effort_available
-        )
+        self.is_overcommitted = self.total_effort_committed > self.total_effort_available
 
         # Auto-flag risks
         if self.is_overcommitted:
@@ -118,9 +112,7 @@ class CapacityAnalysis:
         if self.team_members == 0:
             self.risk_flags.append("No team members defined")
         if len(self.overcommitted_members) > 0:
-            self.risk_flags.append(
-                f"{len(self.overcommitted_members)} team members overloaded"
-            )
+            self.risk_flags.append(f"{len(self.overcommitted_members)} team members overloaded")
 
 
 @dataclass
@@ -158,15 +150,11 @@ class RiskAssessment:
         self.critical_risk_count = sum(
             1 for r in self.identified_risks if r.level == RiskLevel.CRITICAL
         )
-        self.high_risk_count = sum(
-            1 for r in self.identified_risks if r.level == RiskLevel.HIGH
-        )
+        self.high_risk_count = sum(1 for r in self.identified_risks if r.level == RiskLevel.HIGH)
         self.medium_risk_count = sum(
             1 for r in self.identified_risks if r.level == RiskLevel.MEDIUM
         )
-        self.low_risk_count = sum(
-            1 for r in self.identified_risks if r.level == RiskLevel.LOW
-        )
+        self.low_risk_count = sum(1 for r in self.identified_risks if r.level == RiskLevel.LOW)
 
         # Calculate health score: 100 = no risks, decreases with risk severity
         health_score = 100.0
@@ -178,9 +166,7 @@ class RiskAssessment:
 
         # Determine if escalation needed
         self.escalation_required = (
-            self.critical_risk_count > 0
-            or self.high_risk_count > 2
-            or self.health_score < 30
+            self.critical_risk_count > 0 or self.high_risk_count > 2 or self.health_score < 30
         )
 
         # Auto-generate recommendations based on risks

@@ -135,23 +135,15 @@ def main(
         # Calculate metrics
         total_effort = sum(o.effort for o in program_objectives)
         completed_effort = sum(
-            o.effort
-            for o in program_objectives
-            if o.status in ["Done", "Accepted"]
+            o.effort for o in program_objectives if o.status in ["Done", "Accepted"]
         )
-        progress_pct = (
-            (completed_effort / total_effort * 100) if total_effort > 0 else 0
-        )
+        progress_pct = (completed_effort / total_effort * 100) if total_effort > 0 else 0
 
         # Output results
         if format == "json":
-            _output_json(
-                rel, program_objectives, team_objectives, teams, features
-            )
+            _output_json(rel, program_objectives, team_objectives, teams, features)
         elif format == "markdown":
-            _output_markdown(
-                rel, program_objectives, team_objectives, teams, features
-            )
+            _output_markdown(rel, program_objectives, team_objectives, teams, features)
         else:
             _output_text(rel, program_objectives, team_objectives, teams, features)
 
@@ -183,15 +175,9 @@ def _output_text(rel, program_objectives, team_objectives, teams, features) -> N
     overview_table.add_row(
         "Start Date", rel.start_date.strftime("%Y-%m-%d") if rel.start_date else "N/A"
     )
-    overview_table.add_row(
-        "End Date", rel.end_date.strftime("%Y-%m-%d") if rel.end_date else "N/A"
-    )
+    overview_table.add_row("End Date", rel.end_date.strftime("%Y-%m-%d") if rel.end_date else "N/A")
 
-    days_remaining = (
-        (rel.end_date.date() - datetime.now().date()).days
-        if rel.end_date
-        else None
-    )
+    days_remaining = (rel.end_date.date() - datetime.now().date()).days if rel.end_date else None
     if days_remaining is not None:
         overview_table.add_row(
             "Days Remaining",
@@ -207,11 +193,7 @@ def _output_text(rel, program_objectives, team_objectives, teams, features) -> N
     # Progress Metrics
     console.print("\n[bold]Progress Metrics[/bold]")
     total_effort = sum(o.effort for o in program_objectives)
-    completed_effort = sum(
-        o.effort
-        for o in program_objectives
-        if o.status in ["Done", "Accepted"]
-    )
+    completed_effort = sum(o.effort for o in program_objectives if o.status in ["Done", "Accepted"])
     progress_pct = (completed_effort / total_effort * 100) if total_effort > 0 else 0
 
     metrics_table = Table(show_header=True, header_style="bold magenta")
@@ -248,9 +230,7 @@ def _output_text(rel, program_objectives, team_objectives, teams, features) -> N
         console.print(obj_table)
 
         if len(program_objectives) > 15:
-            console.print(
-                f"[dim]... and {len(program_objectives) - 15} more objectives[/dim]"
-            )
+            console.print(f"[dim]... and {len(program_objectives) - 15} more objectives[/dim]")
     else:
         console.print("[yellow]No program objectives found[/yellow]")
 
@@ -265,11 +245,7 @@ def _output_text(rel, program_objectives, team_objectives, teams, features) -> N
     for team in teams[:10]:  # Show first 10 teams
         team_objs = [o for o in team_objectives if o.team_id == team.id]
         team_effort = sum(o.effort for o in team_objs)
-        team_completed = sum(
-            o.effort
-            for o in team_objs
-            if o.status in ["Done", "Accepted"]
-        )
+        team_completed = sum(o.effort for o in team_objs if o.status in ["Done", "Accepted"])
         team_pct = (team_completed / team_effort * 100) if team_effort > 0 else 0
 
         team_table.add_row(
@@ -303,11 +279,7 @@ def _output_json(rel, program_objectives, team_objectives, teams, features) -> N
     import json
 
     total_effort = sum(o.effort for o in program_objectives)
-    completed_effort = sum(
-        o.effort
-        for o in program_objectives
-        if o.status in ["Done", "Accepted"]
-    )
+    completed_effort = sum(o.effort for o in program_objectives if o.status in ["Done", "Accepted"])
     progress_pct = (completed_effort / total_effort * 100) if total_effort > 0 else 0
 
     output = {
@@ -356,20 +328,12 @@ def _output_markdown(rel, program_objectives, team_objectives, teams, features) 
     console.print(
         f"- **Start Date:** {rel.start_date.strftime('%Y-%m-%d') if rel.start_date else 'N/A'}"
     )
-    console.print(
-        f"- **End Date:** {rel.end_date.strftime('%Y-%m-%d') if rel.end_date else 'N/A'}"
-    )
-    console.print(
-        f"- **Status:** {'Current' if rel.is_in_progress else 'Upcoming'}\n"
-    )
+    console.print(f"- **End Date:** {rel.end_date.strftime('%Y-%m-%d') if rel.end_date else 'N/A'}")
+    console.print(f"- **Status:** {'Current' if rel.is_in_progress else 'Upcoming'}\n")
 
     # Progress
     total_effort = sum(o.effort for o in program_objectives)
-    completed_effort = sum(
-        o.effort
-        for o in program_objectives
-        if o.status in ["Done", "Accepted"]
-    )
+    completed_effort = sum(o.effort for o in program_objectives if o.status in ["Done", "Accepted"])
     progress_pct = (completed_effort / total_effort * 100) if total_effort > 0 else 0
 
     console.print("## Progress\n")
@@ -381,9 +345,7 @@ def _output_markdown(rel, program_objectives, team_objectives, teams, features) 
     console.print(f"## Program Objectives ({len(program_objectives)})\n")
     for obj in program_objectives[:20]:
         status_icon = "✓" if obj.status == "Done" else "▶" if obj.status == "In Progress" else "○"
-        console.print(
-            f"{status_icon} **{obj.name}** - {obj.status} ({obj.effort} points)"
-        )
+        console.print(f"{status_icon} **{obj.name}** - {obj.status} ({obj.effort} points)")
 
     console.print(f"\n## Team Summary\n")
     for team in teams[:10]:

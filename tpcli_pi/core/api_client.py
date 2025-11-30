@@ -61,7 +61,7 @@ class TPAPIClient:
             return None
 
         # Try TargetProcess format: /Date(milliseconds+timezone)/
-        tp_match = re.match(r'/Date\((\d+)([+-]\d{4})?\)/', date_str)
+        tp_match = re.match(r"/Date\((\d+)([+-]\d{4})?\)/", date_str)
         if tp_match:
             milliseconds = int(tp_match.group(1))
             return datetime.fromtimestamp(milliseconds / 1000)
@@ -121,15 +121,9 @@ class TPAPIClient:
         except subprocess.TimeoutExpired:
             raise TPAPIError(f"tpcli command timed out: {' '.join(cmd)}")
         except subprocess.CalledProcessError as e:
-            raise TPAPIError(
-                f"tpcli command failed: {' '.join(cmd)}\n"
-                f"stderr: {e.stderr}"
-            )
+            raise TPAPIError(f"tpcli command failed: {' '.join(cmd)}\nstderr: {e.stderr}")
         except json.JSONDecodeError as e:
-            raise TPAPIError(
-                f"Failed to parse tpcli JSON response: {e}\n"
-                f"Raw output: {output}"
-            )
+            raise TPAPIError(f"Failed to parse tpcli JSON response: {e}\nRaw output: {output}")
 
     def _cache_key(self, entity_type: str, args: Optional[List[str]] = None) -> str:
         """Generate cache key for a query."""
@@ -185,9 +179,7 @@ class TPAPIClient:
 
         return [self._parse_team(item) for item in cached]
 
-    def get_team_by_name(
-        self, name: str, art_id: Optional[int] = None
-    ) -> Optional[Team]:
+    def get_team_by_name(self, name: str, art_id: Optional[int] = None) -> Optional[Team]:
         """Get team by name, optionally within specific ART."""
         teams = self.get_teams(art_id)
         for team in teams:
@@ -208,9 +200,7 @@ class TPAPIClient:
 
         return [self._parse_release(item) for item in cached]
 
-    def get_release_by_name(
-        self, name: str, art_id: Optional[int] = None
-    ) -> Optional[Release]:
+    def get_release_by_name(self, name: str, art_id: Optional[int] = None) -> Optional[Release]:
         """Get release by name, optionally within specific ART."""
         releases = self.get_releases(art_id)
         for release in releases:
@@ -413,9 +403,7 @@ class TPAPIClient:
             else None,
             effort=data.get("Effort", 0),
             created_date=created_date,
-            team_id=data.get("Team", {}).get("Id")
-            if isinstance(data.get("Team"), dict)
-            else None,
+            team_id=data.get("Team", {}).get("Id") if isinstance(data.get("Team"), dict) else None,
             team_name=data.get("Team", {}).get("Name")
             if isinstance(data.get("Team"), dict)
             else None,

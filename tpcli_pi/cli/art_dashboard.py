@@ -165,7 +165,9 @@ def _output_text(art_obj, releases, teams, program_objectives) -> None:
     releases_table.add_column("Status")
 
     for release in releases:
-        status = "Current" if release.is_in_progress else "Upcoming" if release.is_current else "Past"
+        status = (
+            "Current" if release.is_in_progress else "Upcoming" if release.is_current else "Past"
+        )
         releases_table.add_row(
             release.name,
             format_date(release.start_date),
@@ -186,11 +188,7 @@ def _output_text(art_obj, releases, teams, program_objectives) -> None:
 
     for team in teams:
         status = "Active" if team.is_active else "Inactive"
-        owner_name = (
-            f"{team.owner.first_name} {team.owner.last_name}"
-            if team.owner
-            else "N/A"
-        )
+        owner_name = f"{team.owner.first_name} {team.owner.last_name}" if team.owner else "N/A"
         teams_table.add_row(
             team.name,
             str(team.member_count),
@@ -227,7 +225,9 @@ def _output_text(art_obj, releases, teams, program_objectives) -> None:
     health_table.add_row("Total Releases", str(len(releases)))
     health_table.add_row("Total Teams", str(len(teams)))
     health_table.add_row("Program Objectives", str(len(program_objectives)))
-    health_table.add_row("Committed Objectives", str(sum(1 for o in program_objectives if o.status == "Accepted")))
+    health_table.add_row(
+        "Committed Objectives", str(sum(1 for o in program_objectives if o.status == "Accepted"))
+    )
 
     console.print(health_table)
 
@@ -282,7 +282,9 @@ def _output_csv(art_obj, releases, teams, program_objectives) -> None:
 
     console.print("Release,Start Date,End Date,Status")
     for release in releases:
-        status = "Current" if release.is_in_progress else "Upcoming" if release.is_current else "Past"
+        status = (
+            "Current" if release.is_in_progress else "Upcoming" if release.is_current else "Past"
+        )
         console.print(
             f"{release.name},{format_date(release.start_date)},"
             f"{format_date(release.end_date)},{status}"
@@ -291,11 +293,7 @@ def _output_csv(art_obj, releases, teams, program_objectives) -> None:
     console.print("\nTeam,Members,Status,Owner")
     for team in teams:
         status = "Active" if team.is_active else "Inactive"
-        owner = (
-            f"{team.owner.first_name} {team.owner.last_name}"
-            if team.owner
-            else "N/A"
-        )
+        owner = f"{team.owner.first_name} {team.owner.last_name}" if team.owner else "N/A"
         console.print(f"{team.name},{team.member_count},{status},{owner}")
 
     console.print("\nObjective,Status,Effort,Release")

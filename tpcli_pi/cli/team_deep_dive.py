@@ -174,9 +174,7 @@ def _output_text(team_obj, capacity, objectives, features, risk_assessment) -> N
     overview_table.add_row("Members", str(team_obj.member_count))
     overview_table.add_row(
         "Owner",
-        f"{team_obj.owner.first_name} {team_obj.owner.last_name}"
-        if team_obj.owner
-        else "N/A",
+        f"{team_obj.owner.first_name} {team_obj.owner.last_name}" if team_obj.owner else "N/A",
     )
     overview_table.add_row("Status", "Active" if team_obj.is_active else "Inactive")
     overview_table.add_row("ART", team_obj.art_name or "N/A")
@@ -189,15 +187,9 @@ def _output_text(team_obj, capacity, objectives, features, risk_assessment) -> N
     capacity_table.add_column("Metric", style="cyan")
     capacity_table.add_column("Value")
 
-    capacity_table.add_row(
-        "Total Capacity", f"{capacity.total_effort_available} points"
-    )
-    capacity_table.add_row(
-        "Committed Effort", f"{capacity.total_effort_committed} points"
-    )
-    capacity_table.add_row(
-        "Remaining Capacity", f"{capacity.total_effort_remaining} points"
-    )
+    capacity_table.add_row("Total Capacity", f"{capacity.total_effort_available} points")
+    capacity_table.add_row("Committed Effort", f"{capacity.total_effort_committed} points")
+    capacity_table.add_row("Remaining Capacity", f"{capacity.total_effort_remaining} points")
     capacity_table.add_row(
         "Utilization",
         format_percent(capacity.capacity_utilization_percent),
@@ -365,9 +357,7 @@ def _output_markdown(team_obj, capacity, objectives, features, risk_assessment) 
     console.print(f"- **Total Capacity:** {capacity.total_effort_available} points")
     console.print(f"- **Committed Effort:** {capacity.total_effort_committed} points")
     console.print(f"- **Remaining Capacity:** {capacity.total_effort_remaining} points")
-    console.print(
-        f"- **Utilization:** {capacity.capacity_utilization_percent:.0f}%"
-    )
+    console.print(f"- **Utilization:** {capacity.capacity_utilization_percent:.0f}%")
     status_str = "⚠️ OVERCOMMITTED" if capacity.is_overcommitted else "✓ On Track"
     console.print(f"- **Status:** {status_str}\n")
 

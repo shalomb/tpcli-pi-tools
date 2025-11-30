@@ -76,9 +76,7 @@ class Release:
     def is_in_progress(self) -> bool:
         """Check if release is currently active."""
         today = datetime.now().date()
-        return (
-            self.start_date.date() <= today <= self.end_date.date()
-        )
+        return self.start_date.date() <= today <= self.end_date.date()
 
     @property
     def duration_days(self) -> int:
