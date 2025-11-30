@@ -5,6 +5,9 @@ PYTHON := python3
 UV := uv
 VENV_DIR := .venv
 PYTHON_VERSION := 3.11
+BIN_DIR := $(VENV_DIR)/bin
+GO := go
+TPCLI_BIN := $(BIN_DIR)/tpcli
 
 # Colors for output
 BLUE := \033[0;34m
@@ -38,8 +41,19 @@ venv:
 		echo "Activate with: source $(VENV_DIR)/bin/activate"; \
 	fi
 
+## tpcli: Build and install tpcli Go binary
+tpcli: venv
+	@echo "$(BLUE)Building tpcli Go binary...$(NC)"
+	@if command -v $(GO) > /dev/null; then \
+		$(GO) build -o $(TPCLI_BIN) .; \
+		echo "$(GREEN)✓ tpcli binary installed: $(TPCLI_BIN)$(NC)"; \
+	else \
+		echo "$(YELLOW)⚠ Go not found - skipping tpcli build$(NC)"; \
+		echo "$(YELLOW)  Install Go from https://golang.org/doc/install$(NC)"; \
+	fi
+
 ## install: Install tpcli-pi-tools (basic)
-install: venv
+install: venv tpcli
 	@echo "$(BLUE)Installing tpcli-pi-tools...$(NC)"
 	@. $(VENV_DIR)/bin/activate && $(UV) pip install -e .
 	@echo "$(GREEN)✓ Installation complete$(NC)"
@@ -53,7 +67,7 @@ install: venv
 	@echo "Try: art-dashboard --help"
 
 ## install-dev: Install with development tools (test, lint, type-check)
-install-dev: venv
+install-dev: venv tpcli
 	@echo "$(BLUE)Installing tpcli-pi-tools with dev tools...$(NC)"
 	@. $(VENV_DIR)/bin/activate && $(UV) pip install -e ".[dev]"
 	@echo "$(GREEN)✓ Development installation complete$(NC)"
@@ -68,13 +82,13 @@ install-dev: venv
 ## test: Run pytest tests (requires install-dev)
 test:
 	@echo "$(BLUE)Running tests...$(NC)"
-	@. $(VENV_DIR)/bin/activate && pytest -v tests/
+	@. $(VENV_DIR)/bin/activate && PATH="$(BIN_DIR):$$PATH" pytest -v tests/
 	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 ## test-cov: Run tests with coverage report
 test-cov:
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	@. $(VENV_DIR)/bin/activate && pytest -v --cov=tpcli_pi --cov-report=html tests/
+	@. $(VENV_DIR)/bin/activate && PATH="$(BIN_DIR):$$PATH" pytest -v --cov=tpcli_pi --cov-report=html tests/
 	@echo "$(GREEN)✓ Coverage report: htmlcov/index.html$(NC)"
 
 ## lint: Check code quality with ruff
@@ -98,17 +112,18 @@ format:
 ## bdd: Run BDD tests (behave/pytest-bdd)
 bdd:
 	@echo "$(BLUE)Running BDD tests...$(NC)"
-	@. $(VENV_DIR)/bin/activate && behave scripts/specs/
+	@. $(VENV_DIR)/bin/activate && PATH="$(BIN_DIR):$$PATH" behave scripts/specs/
 	@echo "$(GREEN)✓ BDD tests complete$(NC)"
 
 ## check: Run all checks (lint + type-check)
 check: lint type-check
 	@echo "$(GREEN)✓ All checks passed$(NC)"
 
-## clean: Remove virtual environment and build artifacts
+## clean: Remove virtual environment, tpcli binary, and build artifacts
 clean:
 	@echo "$(BLUE)Cleaning up...$(NC)"
 	@rm -rf $(VENV_DIR)
+	@rm -f $(TPCLI_BIN)
 	@rm -rf build/ dist/ *.egg-info .eggs/
 	@rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/
 	@rm -rf htmlcov/ .coverage
@@ -121,7 +136,7 @@ run:
 		echo "Usage: make run CMD=\"<command>\""; \
 		echo "Example: make run CMD=\"art-dashboard --art 'Example ART'\""; \
 	else \
-		. $(VENV_DIR)/bin/activate && $(CMD); \
+		. $(VENV_DIR)/bin/activate && PATH="$(BIN_DIR):$$PATH" $(CMD); \
 	fi
 
 ## docs: Generate documentation (if applicable)
