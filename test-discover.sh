@@ -2,7 +2,7 @@
 set -e
 
 export TP_TOKEN="$API_TOKEN"
-export TP_URL="https://takedamain.tpondemand.com"
+export TP_URL="https://example.tpondemand.com"
 
 echo "Testing tpcli discover..."
 echo "Token: ${TP_TOKEN:0:20}..."

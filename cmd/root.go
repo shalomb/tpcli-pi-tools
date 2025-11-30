@@ -42,31 +42,61 @@ func init() {
 }
 
 func initConfig() {
-	// Read from environment variables with TP_ prefix first
+	// 12-factor app precedence:
+	// 1. Environment variables (TP_URL, TP_TOKEN) - highest priority
+	// 2. Local config file (.tpcli.yaml in current directory)
+	// 3. Global config file (~/.config/tpcli/config.yml)
+	// 4. Legacy home config (~/.tpcli.yaml) for backwards compatibility
+	// 5. Error if none found
+
+	// Bind environment variables first (highest priority)
 	viper.SetEnvPrefix("TP")
 	viper.AutomaticEnv()
-
-	// Bind specific env vars
 	viper.BindEnv("token", "TP_TOKEN")
 	viper.BindEnv("url", "TP_URL")
 
-	// Load config file if specified or exists
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
-			os.Exit(1)
-		}
-
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".tpcli")
+	// Get home directory for global config paths
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Read config file if it exists
-	if err := viper.ReadInConfig(); err == nil && verbose {
-		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
+	viper.SetConfigType("yaml")
+
+	// If config file explicitly specified via flag, use it
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+		_ = viper.ReadInConfig()
+	} else {
+		// Try to find config file in order of precedence
+		xdgPath := os.ExpandEnv("$XDG_CONFIG_HOME/tpcli/config.yaml")
+		configFiles := []string{}
+		if xdgPath != "" {
+			configFiles = append(configFiles, xdgPath) // XDG standard location (if set)
+		}
+		// Prefer global user config over local repo config
+		configFiles = append(configFiles,
+			home+"/.config/tpcli/config.yaml", // Global config (~/.config)
+			home+"/.tpcli.yaml",               // Legacy home config
+			"./.tpcli.yaml",                   // Local config in current directory (lowest priority)
+		)
+
+		// Try each config file in order
+		for _, cfgPath := range configFiles {
+			if _, err := os.Stat(cfgPath); err == nil {
+				viper.SetConfigFile(cfgPath)
+				if err := viper.ReadInConfig(); err == nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
+					}
+					return
+				}
+			}
+		}
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "No config file found, using environment variables or flags\n")
+		}
 	}
 }

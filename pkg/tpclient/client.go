@@ -43,9 +43,12 @@ func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response,
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	// Set authentication header
-	// Token is already base64 encoded in format expected by TargetProcess
-	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", c.Token))
+	// Add authentication token as query parameter
+	// This is the recommended method per IBM TargetProcess documentation
+	q := req.URL.Query()
+	q.Add("access_token", c.Token)
+	req.URL.RawQuery = q.Encode()
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
@@ -83,7 +86,20 @@ func (c *Client) Get(entityType string, id int, fields []string) (map[string]int
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		var apiErr struct {
+			Status  string `json:"Status"`
+			Message string `json:"Message"`
+			Type    string `json:"Type"`
+			ErrorId string `json:"ErrorId"`
+		}
+		msg := string(body)
+		if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+			msg = fmt.Sprintf("%s: %s (%s)", apiErr.Status, apiErr.Message, apiErr.Type)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("API error %d: %s; resource '%s' may not exist. Try 'tpcli discover' to find available entity types", resp.StatusCode, msg, entityType)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
 	}
 
 	var result map[string]interface{}
@@ -127,7 +143,20 @@ func (c *Client) List(entityType string, where string, fields []string, take, sk
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		var apiErr struct {
+			Status  string `json:"Status"`
+			Message string `json:"Message"`
+			Type    string `json:"Type"`
+			ErrorId string `json:"ErrorId"`
+		}
+		msg := string(body)
+		if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+			msg = fmt.Sprintf("%s: %s (%s)", apiErr.Status, apiErr.Message, apiErr.Type)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("API error %d: %s; resource '%s' may not exist. Try 'tpcli discover' to find available entity types", resp.StatusCode, msg, entityType)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
 	}
 
 	var response struct {
@@ -153,7 +182,20 @@ func (c *Client) QueryV2(entityType, query string) ([]map[string]interface{}, er
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+		var apiErr struct {
+			Status  string `json:"Status"`
+			Message string `json:"Message"`
+			Type    string `json:"Type"`
+			ErrorId string `json:"ErrorId"`
+		}
+		msg := string(body)
+		if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Message != "" {
+			msg = fmt.Sprintf("%s: %s (%s)", apiErr.Status, apiErr.Message, apiErr.Type)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("API error %d: %s; resource '%s' may not exist. Try 'tpcli discover' to find available entity types", resp.StatusCode, msg, entityType)
+		}
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, msg)
 	}
 
 	var response struct {
