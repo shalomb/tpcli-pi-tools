@@ -3,8 +3,9 @@
 import json
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+from time import time
 
 from tpcli_pi.models.entities import (
     AgileReleaseTrain,
@@ -26,19 +27,27 @@ class TPAPIClient:
     """
     Client for querying TargetProcess via tpcli subprocess.
 
-    All queries return typed entity objects. Uses caching to minimize
+    All queries return typed entity objects. Uses caching with TTL to minimize
     subprocess overhead for repeated queries.
     """
 
-    def __init__(self, verbose: bool = False) -> None:
+    def __init__(self, verbose: bool = False, cache_ttl: int = 3600) -> None:
         """
         Initialize the TargetProcess API client.
 
         Args:
             verbose: Enable verbose output for debugging
+            cache_ttl: Cache time-to-live in seconds (default: 1 hour)
         """
         self.verbose = verbose
         self._cache: dict[str, Any] = {}
+        self._cache_timestamps: dict[str, float] = {}
+        self.cache_ttl = cache_ttl
+        self._cache_stats = {
+            "hits": 0,
+            "misses": 0,
+            "evictions": 0,
+        }
 
     @staticmethod
     def _parse_tp_date(date_str: str | None) -> datetime | None:
@@ -136,9 +145,31 @@ class TPAPIClient:
     def _get_cached(
         self, entity_type: str, args: list[str] | None = None
     ) -> list[dict[str, Any]] | None:
-        """Get result from cache if available."""
+        """
+        Get result from cache if available and not expired (TTL-based).
+
+        Returns:
+            Cached results if valid, None if expired or not cached
+        """
         key = self._cache_key(entity_type, args)
-        return self._cache.get(key)
+
+        if key not in self._cache:
+            self._cache_stats["misses"] += 1
+            return None
+
+        # Check if cache has expired
+        cache_time = self._cache_timestamps.get(key, 0)
+        if time() - cache_time > self.cache_ttl:
+            # Cache expired, remove it
+            del self._cache[key]
+            del self._cache_timestamps[key]
+            self._cache_stats["evictions"] += 1
+            self._cache_stats["misses"] += 1
+            return None
+
+        # Cache hit
+        self._cache_stats["hits"] += 1
+        return self._cache[key]
 
     def _set_cached(
         self,
@@ -146,9 +177,12 @@ class TPAPIClient:
         results: list[dict[str, Any]],
         args: list[str] | None = None,
     ) -> None:
-        """Store result in cache."""
+        """
+        Store result in cache with timestamp for TTL tracking.
+        """
         key = self._cache_key(entity_type, args)
         self._cache[key] = results
+        self._cache_timestamps[key] = time()
 
     # High-level query methods
 
@@ -901,6 +935,37 @@ class TPAPIClient:
 
         return [self._parse_team_objective(item) for item in updated]
 
+    def get_cache_stats(self) -> dict[str, Any]:
+        """
+        Get cache performance statistics.
+
+        Returns:
+            Dictionary with cache statistics:
+            - hits: Number of cache hits
+            - misses: Number of cache misses
+            - evictions: Number of expired entries evicted
+            - size: Number of entries currently cached
+            - hit_rate: Hit rate percentage (0-100)
+        """
+        total = self._cache_stats["hits"] + self._cache_stats["misses"]
+        hit_rate = (
+            (self._cache_stats["hits"] / total * 100) if total > 0 else 0
+        )
+
+        return {
+            "hits": self._cache_stats["hits"],
+            "misses": self._cache_stats["misses"],
+            "evictions": self._cache_stats["evictions"],
+            "size": len(self._cache),
+            "hit_rate": hit_rate,
+        }
+
     def clear_cache(self) -> None:
-        """Clear all cached results."""
+        """Clear all cached results and reset statistics."""
         self._cache.clear()
+        self._cache_timestamps.clear()
+        self._cache_stats = {
+            "hits": 0,
+            "misses": 0,
+            "evictions": 0,
+        }

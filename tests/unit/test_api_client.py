@@ -688,3 +688,110 @@ class TestBulkOperations:
         cached = client._get_cached("TeamPIObjectives")
         assert cached is not None
         assert len(cached) == 2
+
+
+class TestCachingWithTTL:
+    """Tests for TTL-based caching and cache statistics."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient with short TTL for testing."""
+        # Short TTL (1 second) for testing expiration
+        return TPAPIClient(verbose=False, cache_ttl=1)
+
+    @pytest.fixture
+    def mock_response(self):
+        """Mock response data."""
+        return {
+            "Id": 100,
+            "Name": "Test",
+            "Team": {"Id": 1, "Name": "Test Team"},
+        }
+
+    def test_cache_ttl_expiration(self, client, mock_response, mocker):
+        """Test cache entries expire after TTL."""
+        import time
+
+        mocker.patch.object(
+            client,
+            "_run_tpcli",
+            return_value=[mock_response],
+        )
+
+        # First call should miss cache and call API
+        result1 = client.get_teams()
+        assert len(result1) > 0
+
+        # Second call should hit cache
+        result2 = client.get_teams()
+        assert len(result2) > 0
+
+        # Wait for TTL to expire
+        time.sleep(1.1)
+
+        # Third call should miss cache (expired) and call API again
+        result3 = client.get_teams()
+        assert len(result3) > 0
+
+        # Verify API was called twice (first and third calls)
+        assert client._run_tpcli.call_count == 2
+
+    def test_cache_statistics(self, client, mock_response, mocker):
+        """Test cache statistics tracking."""
+        mocker.patch.object(
+            client,
+            "_run_tpcli",
+            return_value=[mock_response],
+        )
+
+        # Make multiple queries
+        client.get_teams()  # miss
+        client.get_teams()  # hit
+        client.get_teams()  # hit
+
+        stats = client.get_cache_stats()
+
+        assert stats["hits"] == 2
+        assert stats["misses"] == 1
+        assert stats["evictions"] == 0
+        assert stats["size"] == 1
+        assert stats["hit_rate"] == pytest.approx(66.67, rel=1)
+
+    def test_clear_cache_resets_statistics(self, client, mock_response, mocker):
+        """Test clear_cache resets statistics and timestamps."""
+        mocker.patch.object(
+            client,
+            "_run_tpcli",
+            return_value=[mock_response],
+        )
+
+        # Generate some cache activity
+        client.get_teams()
+        client.get_teams()
+
+        stats_before = client.get_cache_stats()
+        assert stats_before["hits"] > 0
+
+        # Clear cache
+        client.clear_cache()
+
+        stats_after = client.get_cache_stats()
+        assert stats_after["hits"] == 0
+        assert stats_after["misses"] == 0
+        assert stats_after["evictions"] == 0
+        assert stats_after["size"] == 0
+
+    def test_cache_hit_rate_calculation(self, client, mock_response, mocker):
+        """Test cache hit rate calculation."""
+        mocker.patch.object(
+            client,
+            "_run_tpcli",
+            return_value=[mock_response],
+        )
+
+        # 1 miss, 9 hits = 90% hit rate
+        for _ in range(10):
+            client.get_teams()
+
+        stats = client.get_cache_stats()
+        assert stats["hit_rate"] == pytest.approx(90.0, rel=1)
