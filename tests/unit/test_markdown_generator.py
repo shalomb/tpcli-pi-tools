@@ -563,3 +563,287 @@ class TestSecurityAndValidation:
         """Test YAML injection is prevented."""
         # Assert frontmatter safe
         pass
+
+
+class TestPhaseAJiraIntegration:
+    """Phase 2A: Tests for Jira epic link display and acceptance criteria."""
+
+    @pytest.fixture
+    def generator(self):
+        """Fixture providing a MarkdownGenerator instance."""
+        return MarkdownGenerator()
+
+    @pytest.fixture
+    def mock_epic_with_jira(self):
+        """Epic with Jira key and acceptance criteria."""
+        return {
+            "id": 2018883,
+            "name": "Semantic Versioning & CI/CD",
+            "owner": "Venkatesh Ravi",
+            "status": "Analyzing",
+            "effort": 21,
+            "jira_key": "DAD-2652",
+            "acceptance_criteria": "CPU and memory limits configured at pod level\nAlerting implemented for backend pods\nSemantic versioning for Docker images"
+        }
+
+    @pytest.fixture
+    def mock_epic_without_jira(self):
+        """Epic without Jira key (graceful degradation)."""
+        return {
+            "id": 2018884,
+            "name": "Internal Process Improvement",
+            "owner": "Jane Smith",
+            "status": "Planning",
+            "effort": 13,
+            "acceptance_criteria": "Process documented\nTeam trained"
+        }
+
+    @pytest.fixture
+    def mock_objectives_phase_a(self, mock_epic_with_jira, mock_epic_without_jira):
+        """Mock objectives with Phase A features."""
+        return [
+            {
+                "id": 2019099,
+                "name": "Platform Stability",
+                "status": "In Progress",
+                "effort": 34,
+                "owner": {"Name": "Alice Chen"},
+                "epics": [mock_epic_with_jira, mock_epic_without_jira]
+            }
+        ]
+
+    # US-PA-1: Display Jira Epic Links
+    def test_jira_key_renders_as_clickable_link(self, generator, mock_epic_with_jira):
+        """Test Jira key appears as clickable markdown link."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should contain markdown link format
+        assert "[DAD-2652]" in markdown
+        assert "https://jira.takeda.com/browse/DAD-2652" in markdown
+        assert "[DAD-2652](https://jira.takeda.com/browse/DAD-2652)" in markdown
+
+    def test_jira_epic_label_in_output(self, generator, mock_epic_with_jira):
+        """Test Jira epic label appears in output."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        assert "**Jira Epic**:" in markdown
+
+    # US-PA-2: Display Acceptance Criteria from TP
+    def test_acceptance_criteria_rendered_as_list(self, generator, mock_epic_with_jira):
+        """Test acceptance criteria rendered as markdown list items."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should have AC header
+        assert "**Acceptance Criteria**:" in markdown
+        # Should have list items (each starting with "  - ")
+        assert "  - CPU and memory limits configured at pod level" in markdown
+        assert "  - Alerting implemented for backend pods" in markdown
+        assert "  - Semantic versioning for Docker images" in markdown
+
+    def test_html_entities_decoded_in_acceptance_criteria(self, generator):
+        """Test HTML entities in AC are properly decoded."""
+        epic_with_html_ac = {
+            "id": 1,
+            "name": "Test Epic",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "TEST-1",
+            "acceptance_criteria": "Item 1&#44; Item 2&nbsp;and&nbsp;Item 3"
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_with_html_ac]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # HTML entities should be decoded
+        assert "&#44;" not in markdown  # , entity should be decoded
+        assert "&nbsp;" not in markdown  # Space entity should be decoded
+
+    def test_html_tags_stripped_from_acceptance_criteria(self, generator):
+        """Test HTML tags in AC are properly stripped."""
+        epic_with_html_ac = {
+            "id": 1,
+            "name": "Test Epic",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "TEST-1",
+            "acceptance_criteria": "<p>Item 1</p><p>Item 2</p>"
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_with_html_ac]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # HTML tags should be stripped
+        assert "<p>" not in markdown
+        assert "</p>" not in markdown
+
+    # US-PA-3: Note directing users to Jira for stories
+    def test_jira_story_decomposition_note_included(self, generator, mock_epic_with_jira):
+        """Test note directing users to Jira for story details."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should include story decomposition note
+        assert "For detailed story decomposition" in markdown
+        assert "Jira DAD-2652" in markdown
+
+    def test_story_decomposition_note_is_italic(self, generator, mock_epic_with_jira):
+        """Test story decomposition note is formatted as italic."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should be italic markdown
+        assert "*For detailed story decomposition" in markdown
+
+    # US-PA-4: Handle missing/invalid Jira keys gracefully
+    def test_epic_without_jira_key_renders_cleanly(self, generator, mock_epic_without_jira):
+        """Test epics without Jira key render without errors."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_without_jira]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should render without error, no broken links
+        assert "### Epic: Internal Process Improvement" in markdown
+        assert "**Owner**: Jane Smith" in markdown
+        # Should NOT have Jira Epic field when key missing
+        assert "**Jira Epic**: [None]" not in markdown
+        assert "**Jira Epic**: []" not in markdown
+
+    def test_multiple_epics_mixed_jira_availability(self, generator, mock_objectives_phase_a):
+        """Test multiple epics with and without Jira keys work together."""
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=mock_objectives_phase_a,
+        )
+        # Epic with Jira key should have link
+        assert "[DAD-2652]" in markdown
+        # Epic without Jira key should still render
+        assert "### Epic: Internal Process Improvement" in markdown
+        # No broken links for missing keys
+        assert "[None]" not in markdown
+
+    def test_acceptance_criteria_empty_handled_gracefully(self, generator):
+        """Test missing acceptance criteria doesn't break rendering."""
+        epic_no_ac = {
+            "id": 1,
+            "name": "Test Epic",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "TEST-1"
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_no_ac]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should not have empty AC section
+        assert "**Acceptance Criteria**:\n  -" not in markdown
+
+    def test_jira_url_format_correct(self, generator):
+        """Test Jira URL is properly formatted."""
+        epic_with_key = {
+            "id": 1,
+            "name": "Test",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "TEST-123"
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_with_key]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # URL should be well-formed
+        assert "https://jira.takeda.com/browse/TEST-123" in markdown
+        assert "browse/TEST-123" in markdown
+
+    def test_jira_key_variations_supported(self, generator):
+        """Test different Jira key casing/formats work."""
+        for jira_key in ["DAD-123", "PROJ-999", "X-1"]:
+            epic = {
+                "id": 1, "name": "Test", "owner": "Test",
+                "status": "OK", "effort": 5, "jira_key": jira_key
+            }
+            objectives = [{
+                "id": 1, "name": "Test", "status": "OK", "effort": 10,
+                "epics": [epic]
+            }]
+            markdown = generator.generate(
+                team_name="Test Team",
+                release_name="PI-1/25",
+                art_name="Test ART",
+                team_objectives=objectives,
+            )
+            assert f"[{jira_key}]" in markdown
+            assert f"browse/{jira_key}" in markdown

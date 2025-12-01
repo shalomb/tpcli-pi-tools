@@ -196,7 +196,15 @@ class MarkdownGenerator:
         return lines
 
     def _epic_section(self, epic: dict[str, Any]) -> list[str]:
-        """Generate markdown section for an epic."""
+        """
+        Generate markdown section for an epic.
+
+        Phase 2A features:
+        - Jira key displayed as clickable link (US-PA-1)
+        - Acceptance criteria rendered as list (US-PA-2)
+        - Note directing users to Jira for story decomposition (US-PA-3)
+        - Graceful handling of missing Jira keys (US-PA-4)
+        """
         lines = []
 
         # H3 header
@@ -214,9 +222,79 @@ class MarkdownGenerator:
         if epic.get("effort"):
             lines.append(f"**Effort**: {epic['effort']} points")
 
+        # US-PA-1: Jira Key as clickable link
+        jira_key = epic.get("jira_key") or epic.get("JiraKey")
+        if jira_key:
+            jira_url = self._format_jira_url(jira_key)
+            lines.append(f"**Jira Epic**: [{jira_key}]({jira_url})")
+
         lines.append("")
 
+        # US-PA-2: Acceptance Criteria from TP
+        acceptance_criteria = epic.get("acceptance_criteria") or epic.get("AcceptanceCriteria")
+        if acceptance_criteria:
+            lines.append("**Acceptance Criteria**:")
+            cleaned_ac = self._clean_html(acceptance_criteria)
+            for line in cleaned_ac.split('\n'):
+                if line.strip():
+                    lines.append(f"  - {line.strip()}")
+            lines.append("")
+
+        # US-PA-3: Note directing users to Jira for story decomposition
+        if jira_key:
+            lines.append(f"*For detailed story decomposition, see [Jira {jira_key}]({self._format_jira_url(jira_key)})*")
+            lines.append("")
+
         return lines
+
+    def _format_jira_url(self, jira_key: str) -> str:
+        """
+        Format Jira URL from issue key (US-PA-1).
+
+        Args:
+            jira_key: Jira issue key (e.g., "DAD-2652")
+
+        Returns:
+            Full Jira URL to Takeda Jira instance
+        """
+        return f"https://jira.takeda.com/browse/{jira_key}"
+
+    def _clean_html(self, text: str) -> str:
+        """
+        Clean HTML from text: decode entities and strip tags (US-PA-2).
+
+        Preserves newlines for list-based AC. Converts HTML tags to whitespace but
+        maintains line breaks for proper formatting.
+
+        Args:
+            text: Text potentially containing HTML
+
+        Returns:
+            Cleaned text with HTML removed and entities decoded
+        """
+        if not text:
+            return ""
+
+        import re
+        import html
+
+        # Decode HTML entities (&#44; → ,, &nbsp; → space)
+        text = html.unescape(text)
+
+        # Strip HTML tags but preserve newlines (<p> → \n, etc.)
+        text = re.sub(r'</p>', '\n', text)  # </p> → newline
+        text = re.sub(r'<br\s*/?>', '\n', text)  # <br> → newline
+        text = re.sub(r'<[^>]+>', '', text)  # Remove all remaining tags
+
+        # Clean up excessive whitespace within lines but preserve newlines
+        lines = []
+        for line in text.split('\n'):
+            # Collapse multiple spaces within each line
+            cleaned_line = re.sub(r'\s+', ' ', line).strip()
+            if cleaned_line:
+                lines.append(cleaned_line)
+
+        return '\n'.join(lines)
 
     def _yaml_dump(self, data: dict[str, Any]) -> str:
         """Simple YAML dump for frontmatter."""

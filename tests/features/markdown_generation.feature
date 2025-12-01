@@ -170,3 +170,99 @@ Feature: Markdown Generation from TargetProcess Data
     And no markdown injection vulnerabilities
     And special characters rendered literally
 
+  # Phase 2A: Jira Integration Tests
+
+  Scenario: US-PA-1 - Jira epic key displays as clickable link
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with effort=21 owner="Venkatesh Ravi"
+    And Feature has Jira Key "DAD-2652"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then markdown includes Jira link section
+    And Jira link displays key "DAD-2652"
+    And Jira link is formatted as markdown link
+    And Jira link URL points to "https://jira.takeda.com/browse/DAD-2652"
+
+  Scenario: US-PA-2 - Acceptance criteria from TP rendered as list
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099
+    And Feature has acceptance criteria:
+      | CPU and memory limits configured at pod level |
+      | Alerting implemented for backend pods |
+      | Semantic versioning for Docker images |
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then markdown includes acceptance criteria section
+    And acceptance criteria rendered as bullet list
+    And acceptance criteria items:
+      | CPU and memory limits configured at pod level |
+      | Alerting implemented for backend pods |
+      | Semantic versioning for Docker images |
+
+  Scenario: US-PA-2 - HTML entities in acceptance criteria are decoded
+    Given Feature "API Enhancement" (ID=2018885) linked to objective 2019099
+    And Feature has acceptance criteria with HTML entities: "Item 1&#44; Item 2&nbsp;and&nbsp;Item 3"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then acceptance criteria HTML entities are decoded
+    And acceptance criteria does not contain "&#44;"
+    And acceptance criteria does not contain "&nbsp;"
+
+  Scenario: US-PA-2 - HTML tags in acceptance criteria are stripped
+    Given Feature "Security Module" (ID=2018886) linked to objective 2019099
+    And Feature has acceptance criteria with HTML: "<p>Requirement 1</p><p>Requirement 2</p>"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then HTML tags are removed from acceptance criteria
+    And acceptance criteria does not contain "<p>"
+    And acceptance criteria does not contain "</p>"
+    But acceptance criteria text preserved
+
+  Scenario: US-PA-3 - Note directs users to Jira for story decomposition
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with effort=21 owner="Venkatesh Ravi"
+    And Feature has Jira Key "DAD-2652"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then markdown includes story decomposition reference
+    And reference text contains "For detailed story decomposition"
+    And reference mentions Jira key "DAD-2652"
+    And reference is formatted as italic
+
+  Scenario: US-PA-4 - Epic without Jira key renders cleanly
+    Given Feature "Internal Process Improvement" (ID=2018884) linked to objective 2019099 with effort=13 owner="Jane Smith"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then Feature "Internal Process Improvement" appears in markdown
+    And feature metadata renders correctly
+    But no Jira link section appears
+    And no broken markdown links
+
+  Scenario: US-PA-4 - Mixed epics with and without Jira keys
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with effort=21 owner="Venkatesh Ravi"
+    And Feature "Semantic Versioning & CI/CD" has Jira Key "DAD-2652"
+    And Feature "Internal Process Improvement" (ID=2018884) linked to objective 2019099 with effort=13 owner="Jane Smith"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then markdown includes Jira link for "DAD-2652"
+    And markdown includes feature "Internal Process Improvement"
+    And no broken links in markdown
+    And no orphaned markdown link syntax
+
+  Scenario: US-PA-4 - Acceptance criteria empty/missing handled gracefully
+    Given Feature "Placeholder Epic" (ID=2018887) linked to objective 2019099
+    And Feature has Jira Key "TEST-1"
+    And Feature has no acceptance criteria
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then Feature section renders without error
+    And Jira link displays correctly
+    And no empty acceptance criteria section
+    And markdown remains valid
+
+  Scenario: US-PA-1 - Jira URL format is correct
+    Given Feature "Multiple Formats Test" (ID=2018888) linked to objective 2019099
+    And Feature has Jira Key "PROJ-999"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then Jira URL is properly formatted
+    And Jira URL format matches "https://jira.takeda.com/browse/PROJ-999"
+    And URL includes correct Jira key
+
+  Scenario: US-PA-1 - Various Jira key formats supported
+    Given Feature "Format Test 1" (ID=2018889) linked to objective 2019099 with Jira Key "DAD-123"
+    And Feature "Format Test 2" (ID=2018890) linked to objective 2019099 with Jira Key "PROJ-999"
+    And Feature "Format Test 3" (ID=2018891) linked to objective 2019099 with Jira Key "X-1"
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then all Jira keys render as clickable links
+    And all URLs are properly formatted
+    And no key format errors
+
