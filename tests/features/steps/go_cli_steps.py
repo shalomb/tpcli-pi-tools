@@ -164,6 +164,48 @@ def step_error_message_contains(context, expected_text):
         f"Expected error message to contain '{expected_text}'. Got: {error_output}"
 
 
+@then("error message contains \"{expected_text}\" or \"{alternative_text}\"")
+def step_error_message_contains_or(context, expected_text, alternative_text):
+    """Verify error message contains one of the expected texts"""
+    error_output = context.stderr or context.stdout
+
+    found = (expected_text.lower() in error_output.lower() or
+             alternative_text.lower() in error_output.lower())
+    assert found, \
+        f"Expected error to contain '{expected_text}' or '{alternative_text}'. Got: {error_output}"
+
+
+@then("output JSON includes:")
+def step_output_json_includes(context):
+    """Verify output JSON includes specified fields"""
+    output = context.stdout.strip()
+
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError as e:
+        raise AssertionError(f"Output is not valid JSON: {output}\nError: {e}")
+
+    # Parse the table of fields to verify
+    for row in context.table:
+        field = row['field']
+        present = row['present'].lower() == 'true'
+
+        if present:
+            assert field in data, \
+                f"Expected field '{field}' to be present in output. Got: {data}"
+        else:
+            assert field not in data, \
+                f"Expected field '{field}' to NOT be present in output. Got: {data}"
+
+
+@given("TeamPIObjective {id} exists with name=\"{name}\" and effort={effort}")
+def step_objective_exists_with_data(context, id, name, effort):
+    """Setup: TeamPIObjective exists with specific data"""
+    context.existing_objective_id = id
+    context.existing_objective_name = name
+    context.existing_objective_effort = int(effort)
+
+
 @then("returned entity still has name=\"{name}\"")
 def step_entity_preserves_field(context, name):
     """Verify a field was preserved during update"""
