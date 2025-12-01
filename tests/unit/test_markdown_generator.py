@@ -160,7 +160,9 @@ class TestYAMLFrontmatter:
             team_objectives=mock_objectives,
         )
         # synced_at is included in the JSON objects in the array
-        assert "synced_at" in markdown and "2025-11-30T" in markdown
+        assert "synced_at" in markdown
+        # Should have ISO 8601 format timestamp (YYYY-MM-DDTHH:MM:SS)
+        assert re.search(r"2025-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", markdown)
 
     def test_frontmatter_is_valid_yaml(self, generator, mock_objectives):
         """Test that frontmatter is valid YAML."""
