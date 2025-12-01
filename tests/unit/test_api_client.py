@@ -795,3 +795,477 @@ class TestCachingWithTTL:
 
         stats = client.get_cache_stats()
         assert stats["hit_rate"] == pytest.approx(90.0, rel=1)
+
+
+class TestDateParsing:
+    """Tests for _parse_tp_date method."""
+
+    @pytest.fixture
+    def client(self):
+        return TPAPIClient(verbose=False)
+
+    def test_parse_tp_date_format_with_timezone(self, client):
+        """Test parsing TargetProcess date format with timezone."""
+        result = client._parse_tp_date("/Date(1738450043000-0500)/")
+        assert result is not None
+        assert result.year == 2025
+        assert result.month == 2  # 1738450043000ms converts to Feb 1, 2025
+
+    def test_parse_tp_date_format_utc(self, client):
+        """Test parsing TargetProcess date format with UTC."""
+        result = client._parse_tp_date("/Date(1609459200000+0000)/")
+        assert result is not None
+        assert isinstance(result, type(result))
+
+    def test_parse_iso_format_date(self, client):
+        """Test parsing ISO format date."""
+        result = client._parse_tp_date("2025-01-01T00:00:00Z")
+        assert result is not None
+        assert result.year == 2025
+
+    def test_parse_iso_format_with_offset(self, client):
+        """Test parsing ISO format with timezone offset."""
+        result = client._parse_tp_date("2025-01-01T00:00:00-05:00")
+        assert result is not None
+
+    def test_parse_date_none_returns_none(self, client):
+        """Test parsing None date string returns None."""
+        result = client._parse_tp_date(None)
+        assert result is None
+
+    def test_parse_date_empty_string_returns_none(self, client):
+        """Test parsing empty string returns None."""
+        result = client._parse_tp_date("")
+        assert result is None
+
+    def test_parse_date_invalid_format_returns_none(self, client):
+        """Test parsing invalid date format returns None."""
+        result = client._parse_tp_date("not a date")
+        assert result is None
+
+
+class TestQueryFiltering:
+    """Tests for query methods with filtering parameters."""
+
+    @pytest.fixture
+    def client(self):
+        return TPAPIClient(verbose=False)
+
+    @pytest.fixture
+    def mock_teams(self):
+        return [
+            {"Id": 1, "Name": "Team A", "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"}},
+            {"Id": 2, "Name": "Team B", "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"}},
+            {"Id": 3, "Name": "Team C", "AgileReleaseTrain": {"Id": 200, "Name": "ART 2"}},
+        ]
+
+    def test_get_teams_without_filter(self, client, mock_teams, mocker):
+        """Test get_teams without ART filter."""
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_teams)
+        teams = client.get_teams()
+        assert len(teams) == 3
+        assert all(hasattr(t, "id") for t in teams)
+
+    def test_get_teams_with_art_filter(self, client, mock_teams, mocker):
+        """Test get_teams with ART ID filter."""
+        filtered = [t for t in mock_teams if t["AgileReleaseTrain"]["Id"] == 100]
+        mocker.patch.object(client, "_run_tpcli", return_value=filtered)
+
+        teams = client.get_teams(art_id=100)
+        assert len(teams) == 2
+
+    def test_get_team_by_name_success(self, client, mock_teams, mocker):
+        """Test get_team_by_name finds team."""
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_teams)
+        team = client.get_team_by_name("Team A")
+        assert team is not None
+        assert team.name == "Team A"
+
+    def test_get_team_by_name_not_found(self, client, mock_teams, mocker):
+        """Test get_team_by_name returns None when not found."""
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_teams)
+        team = client.get_team_by_name("Nonexistent")
+        assert team is None
+
+    def test_get_team_by_name_with_art_filter(self, client, mock_teams, mocker):
+        """Test get_team_by_name filters by ART."""
+        art1_teams = [t for t in mock_teams if t["AgileReleaseTrain"]["Id"] == 100]
+        mocker.patch.object(client, "_run_tpcli", return_value=art1_teams)
+
+        team = client.get_team_by_name("Team A", art_id=100)
+        assert team is not None
+        assert team.name == "Team A"
+
+    @pytest.fixture
+    def mock_releases(self):
+        return [
+            {"Id": 10, "Name": "PI-4/25", "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"}},
+            {"Id": 11, "Name": "PI-5/25", "AgileReleaseTrain": {"Id": 200, "Name": "ART 2"}},
+        ]
+
+    def test_get_release_by_name(self, client, mock_releases, mocker):
+        """Test get_release_by_name."""
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_releases)
+        release = client.get_release_by_name("PI-4/25")
+        assert release is not None
+        assert release.name == "PI-4/25"
+
+    def test_get_program_pi_objectives_no_filter(self, client, mocker):
+        """Test get_program_pi_objectives without filters."""
+        mock_data = [
+            {"Id": 1, "Name": "Strategic Goal 1", "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_program_pi_objectives()
+        assert len(objs) == 1
+
+    def test_get_program_pi_objectives_with_art_filter(self, client, mocker):
+        """Test get_program_pi_objectives with ART filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Strategic Goal 1", "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_program_pi_objectives(art_id=100)
+        assert len(objs) == 1
+
+    def test_get_program_pi_objectives_with_release_filter(self, client, mocker):
+        """Test get_program_pi_objectives with release filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Strategic Goal 1", "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_program_pi_objectives(release_id=10)
+        assert len(objs) == 1
+
+    def test_get_program_pi_objectives_with_both_filters(self, client, mocker):
+        """Test get_program_pi_objectives with both ART and release filters."""
+        mock_data = [
+            {"Id": 1, "Name": "Strategic Goal 1", "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_program_pi_objectives(art_id=100, release_id=10)
+        assert len(objs) == 1
+
+    def test_get_team_pi_objectives_with_team_filter(self, client, mocker):
+        """Test get_team_pi_objectives with team filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Objective 1", "Team": {"Id": 1}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_team_pi_objectives(team_id=1)
+        assert len(objs) == 1
+
+    def test_get_team_pi_objectives_with_multiple_filters(self, client, mocker):
+        """Test get_team_pi_objectives with team, ART, and release filters."""
+        mock_data = [
+            {"Id": 1, "Name": "Objective 1", "Team": {"Id": 1}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        objs = client.get_team_pi_objectives(team_id=1, art_id=100, release_id=10)
+        assert len(objs) == 1
+
+    def test_get_features_with_team_filter(self, client, mocker):
+        """Test get_features with team filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Feature 1", "Team": {"Id": 1}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        features = client.get_features(team_id=1)
+        assert len(features) == 1
+
+    def test_get_features_with_release_filter(self, client, mocker):
+        """Test get_features with release filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Feature 1", "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        features = client.get_features(release_id=10)
+        assert len(features) == 1
+
+    def test_get_features_with_parent_epic_filter(self, client, mocker):
+        """Test get_features with parent epic filter."""
+        mock_data = [
+            {"Id": 1, "Name": "Feature 1", "Parent": {"Id": 100}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        features = client.get_features(parent_epic_id=100)
+        assert len(features) == 1
+
+    def test_get_features_with_multiple_filters(self, client, mocker):
+        """Test get_features with multiple filters."""
+        mock_data = [
+            {"Id": 1, "Name": "Feature 1", "Team": {"Id": 1}, "Release": {"Id": 10}},
+        ]
+        mocker.patch.object(client, "_run_tpcli", return_value=mock_data)
+        features = client.get_features(team_id=1, release_id=10)
+        assert len(features) == 1
+
+
+class TestEntityParsing:
+    """Tests for entity parsing methods with edge cases."""
+
+    @pytest.fixture
+    def client(self):
+        return TPAPIClient(verbose=False)
+
+    def test_parse_user_complete(self, client):
+        """Test parsing complete user data."""
+        data = {
+            "Id": 123,
+            "FirstName": "John",
+            "LastName": "Doe",
+            "Email": "john@example.com",
+        }
+        user = client._parse_user(data)
+        assert user.id == 123
+        assert user.first_name == "John"
+        assert user.last_name == "Doe"
+        assert user.email == "john@example.com"
+
+    def test_parse_user_missing_fields(self, client):
+        """Test parsing user with missing fields."""
+        data = {"Id": 123}
+        user = client._parse_user(data)
+        assert user.id == 123
+        assert user.first_name == ""
+        assert user.last_name == ""
+        assert user.email == ""
+
+    def test_parse_team_complete(self, client):
+        """Test parsing complete team data."""
+        data = {
+            "Id": 1,
+            "Name": "Platform Eco",
+            "Owner": {"Id": 123, "FirstName": "John", "LastName": "Doe"},
+            "Members": {"length": 5},
+            "IsActive": True,
+            "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"},
+        }
+        team = client._parse_team(data)
+        assert team.id == 1
+        assert team.name == "Platform Eco"
+        assert team.owner is not None
+        assert team.member_count == 5
+        assert team.is_active is True
+        assert team.art_id == 100
+
+    def test_parse_team_without_owner(self, client):
+        """Test parsing team without owner."""
+        data = {
+            "Id": 1,
+            "Name": "Team",
+            "Members": {"length": 3},
+        }
+        team = client._parse_team(data)
+        assert team.owner is None
+        assert team.member_count == 3
+
+    def test_parse_team_with_invalid_members(self, client):
+        """Test parsing team with invalid members format."""
+        data = {
+            "Id": 1,
+            "Name": "Team",
+            "Members": None,
+        }
+        team = client._parse_team(data)
+        assert team.member_count == 0
+
+    def test_parse_art(self, client):
+        """Test parsing ART."""
+        data = {"Id": 100, "Name": "Data Analytics"}
+        art = client._parse_art(data)
+        assert art.id == 100
+        assert art.name == "Data Analytics"
+
+    def test_parse_release_complete(self, client):
+        """Test parsing complete release."""
+        data = {
+            "Id": 10,
+            "Name": "PI-4/25",
+            "StartDate": "/Date(1609459200000-0500)/",
+            "EndDate": "/Date(1609545600000-0500)/",
+            "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"},
+            "IsCurrent": True,
+        }
+        release = client._parse_release(data)
+        assert release.id == 10
+        assert release.name == "PI-4/25"
+        assert release.is_current is True
+
+    def test_parse_release_missing_dates(self, client):
+        """Test parsing release with missing dates."""
+        data = {
+            "Id": 10,
+            "Name": "PI-4/25",
+        }
+        release = client._parse_release(data)
+        assert release.id == 10
+        assert release.start_date is not None  # Should default to now()
+        assert release.end_date is not None
+
+    def test_parse_program_objective_complete(self, client):
+        """Test parsing complete program objective."""
+        data = {
+            "Id": 1,
+            "Name": "Strategic Initiative",
+            "Status": "In Progress",
+            "Owner": {"Id": 123, "FirstName": "Jane"},
+            "Description": "Initiative description",
+            "StartDate": "/Date(1609459200000-0500)/",
+            "EndDate": "/Date(1609545600000-0500)/",
+            "Release": {"Id": 10, "Name": "PI-4/25"},
+            "Effort": 100,
+            "CreatedDate": "/Date(1609459200000-0500)/",
+            "AgileReleaseTrain": {"Id": 100, "Name": "ART 1"},
+        }
+        obj = client._parse_program_objective(data)
+        assert obj.id == 1
+        assert obj.name == "Strategic Initiative"
+        assert obj.owner is not None
+        assert obj.effort == 100
+
+    def test_parse_program_objective_without_optional_fields(self, client):
+        """Test parsing program objective with minimal fields."""
+        data = {
+            "Id": 1,
+            "Name": "Initiative",
+        }
+        obj = client._parse_program_objective(data)
+        assert obj.id == 1
+        assert obj.status == "Pending"
+        assert obj.effort == 0
+
+    def test_parse_team_objective_complete(self, client):
+        """Test parsing complete team objective."""
+        data = {
+            "Id": 2019099,
+            "Name": "Platform governance",
+            "Status": "In Progress",
+            "Owner": {"Id": 123, "FirstName": "John"},
+            "Description": "Governance frameworks",
+            "StartDate": "/Date(1609459200000-0500)/",
+            "EndDate": "/Date(1609545600000-0500)/",
+            "Release": {"Id": 10, "Name": "PI-4/25"},
+            "Effort": 21,
+            "CreatedDate": "/Date(1609459200000-0500)/",
+            "Team": {"Id": 1935991, "Name": "Platform Eco"},
+            "Committed": True,
+        }
+        obj = client._parse_team_objective(data)
+        assert obj.id == 2019099
+        assert obj.team_id == 1935991
+        assert obj.committed is True
+
+    def test_parse_feature_complete(self, client):
+        """Test parsing complete feature."""
+        data = {
+            "Id": 1001,
+            "Name": "Authentication",
+            "Status": "In Progress",
+            "Effort": 13,
+            "Owner": {"Id": 123, "FirstName": "John"},
+            "Team": {"Id": 1, "Name": "Team A"},
+            "Release": {"Id": 10, "Name": "PI-4/25"},
+            "Parent": {"Id": 100, "Name": "Security Epic"},
+            "Description": "Auth feature",
+            "CreatedDate": "/Date(1609459200000-0500)/",
+        }
+        feature = client._parse_feature(data)
+        assert feature.id == 1001
+        assert feature.team is not None
+        assert feature.parent_epic_id == 100
+
+    def test_parse_feature_without_owner(self, client):
+        """Test parsing feature without owner."""
+        data = {
+            "Id": 1001,
+            "Name": "Feature",
+            "Parent": {"Id": 100},
+        }
+        feature = client._parse_feature(data)
+        assert feature.owner is None
+        assert feature.parent_epic_id == 100
+
+
+class TestSubprocessExecutionEdgeCases:
+    """Tests for subprocess execution edge cases."""
+
+    @pytest.fixture
+    def client(self):
+        return TPAPIClient(verbose=False)
+
+    def test_run_tpcli_with_array_response(self, client, mocker):
+        """Test _run_tpcli with array response."""
+        mock_output = '[{"Id": 1}, {"Id": 2}]'
+        mocker.patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=mock_output,
+                stderr="",
+                returncode=0,
+            ),
+        )
+        result = client._run_tpcli("Teams")
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+    def test_run_tpcli_with_single_object_response(self, client, mocker):
+        """Test _run_tpcli with single object response."""
+        mock_output = '{"Id": 1, "Name": "Test"}'
+        mocker.patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=mock_output,
+                stderr="",
+                returncode=0,
+            ),
+        )
+        result = client._run_tpcli("Teams")
+        assert isinstance(result, list)
+        assert len(result) == 1
+
+    def test_run_tpcli_with_metadata_before_json(self, client, mocker):
+        """Test _run_tpcli handles metadata before JSON."""
+        mock_output = "Fetching data...\n[{\"Id\": 1}]"
+        mocker.patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=mock_output,
+                stderr="",
+                returncode=0,
+            ),
+        )
+        result = client._run_tpcli("Teams")
+        assert len(result) == 1
+
+    def test_run_tpcli_timeout_raises_error(self, client, mocker):
+        """Test _run_tpcli handles subprocess timeout."""
+        mocker.patch(
+            "subprocess.run",
+            side_effect=__import__("subprocess").TimeoutExpired("cmd", 30),
+        )
+        with pytest.raises(TPAPIError, match="timed out"):
+            client._run_tpcli("Teams")
+
+    def test_run_tpcli_command_error_raises_error(self, client, mocker):
+        """Test _run_tpcli handles command failure."""
+        mocker.patch(
+            "subprocess.run",
+            side_effect=__import__("subprocess").CalledProcessError(1, "cmd"),
+        )
+        with pytest.raises(TPAPIError, match="tpcli command failed"):
+            client._run_tpcli("Teams")
+
+    def test_run_tpcli_no_json_raises_error(self, client, mocker):
+        """Test _run_tpcli raises error when no JSON found."""
+        mock_output = "No data available"
+        mocker.patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout=mock_output,
+                stderr="",
+                returncode=0,
+            ),
+        )
+        with pytest.raises(TPAPIError, match="No JSON found"):
+            client._run_tpcli("Teams")
