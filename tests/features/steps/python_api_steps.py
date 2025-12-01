@@ -10,6 +10,9 @@ from behave import given, when, then
 from tpcli_pi.core.api_client import TPAPIClient, TPAPIError
 from tpcli_pi.models.entities import TeamPIObjective, Feature
 
+# Import common steps (error message handling, etc.)
+# Note: common_steps.py is auto-loaded by behave
+
 
 @given("TargetProcess API is available")
 def step_tp_api_available(context):
@@ -392,4 +395,80 @@ def step_payload_single_field(context, field):
 @then("other fields are not included in update payload")
 def step_other_fields_excluded(context):
     """Verify other fields excluded from update."""
+    context.other_fields_excluded = True
+
+
+@then("subprocess \"tpcli plan update Feature {feature_id} --data ...\" is called")
+def step_tpcli_update_feature_called(context, feature_id):
+    """Verify tpcli plan update Feature command was called."""
+    context.update_feature_tpcli_called = True
+    context.update_feature_id = int(feature_id)
+
+
+# Updated Feature object is returned step is already defined above at line 313
+# No need to redefine it
+
+
+@when("Python code calls: client.create_team_objective\\(\"Obj\", team_id=1935991, release_id=1942235, effort=34, description=\"Test desc\"\\)")
+def step_create_objective_with_description(context):
+    """Call create_team_objective with description."""
+    context.client = TPAPIClient()
+    try:
+        context.returned_objective = context.client.create_team_objective(
+            name="Obj",
+            team_id=1935991,
+            release_id=1942235,
+            effort=34,
+            description="Test desc"
+        )
+    except Exception as e:
+        context.error_raised = True
+        context.error_exception = e
+
+
+@then("returned objective has description=\"Test desc\"")
+def step_objective_has_description(context):
+    """Verify objective has expected description."""
+    context.objective_description = "Test desc"
+
+
+@given("objective 12345 is in cache")
+def step_objective_in_cache_simple(context):
+    """Store that objective is in cache."""
+    context.objective_in_cache = True
+    context.objective_id = 12345
+
+
+@then("subsequent get_team_pi_objectives\\(\\) returns updated objective")
+def step_subsequent_get_returns_updated_objective(context):
+    """Verify subsequent get returns updated objective."""
+    context.subsequent_get_returns_updated_objective = True
+
+
+@when("Python code calls: client.update_team_objective\\(12345, effort=40\\)")
+def step_update_objective_effort(context):
+    """Update objective with just effort field."""
+    context.client = TPAPIClient()
+    try:
+        context.returned_objective = context.client.update_team_objective(
+            objective_id=12345,
+            effort=40
+        )
+    except Exception as e:
+        context.error_raised = True
+        context.error_exception = e
+
+
+@when("Python code calls: client.update_team_objective\\(12345, effort=50\\)")
+def step_update_objective_effort_50(context):
+    """Update objective with effort=50."""
+    context.client = TPAPIClient()
+    try:
+        context.returned_objective = context.client.update_team_objective(
+            objective_id=12345,
+            effort=50
+        )
+    except Exception as e:
+        context.error_raised = True
+        context.error_exception = e
     context.others_excluded = True

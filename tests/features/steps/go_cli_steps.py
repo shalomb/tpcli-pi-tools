@@ -154,25 +154,7 @@ def step_output_contains_updated_json(context):
     assert "id" in data, f"JSON output missing 'id' field. Got: {data}"
 
 
-@then("error message contains \"{expected_text}\"")
-def step_error_message_contains(context, expected_text):
-    """Verify error message contains expected text"""
-    # Check stderr first, then stdout (some errors go to stdout)
-    error_output = context.stderr or context.stdout
-
-    assert expected_text.lower() in error_output.lower(), \
-        f"Expected error message to contain '{expected_text}'. Got: {error_output}"
-
-
-@then("error message contains \"{expected_text}\" or \"{alternative_text}\"")
-def step_error_message_contains_or(context, expected_text, alternative_text):
-    """Verify error message contains one of the expected texts"""
-    error_output = context.stderr or context.stdout
-
-    found = (expected_text.lower() in error_output.lower() or
-             alternative_text.lower() in error_output.lower())
-    assert found, \
-        f"Expected error to contain '{expected_text}' or '{alternative_text}'. Got: {error_output}"
+# Note: error message checking is in common_steps.py to avoid duplication
 
 
 @then("output JSON includes:")
