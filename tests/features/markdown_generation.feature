@@ -266,3 +266,117 @@ Feature: Markdown Generation from TargetProcess Data
     And all URLs are properly formatted
     And no key format errors
 
+  # Phase 2B: Direct Jira API Integration Tests
+
+  Scenario: US-PB-1 - Stories fetched from Jira API
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira API is available with token "test-token"
+    And Jira epic "DAD-2652" has stories:
+      | DAD-2653 | Set up pod resource limits | In Progress | Alice Chen | 5 |
+      | DAD-2654 | Implement alerting rules | To Do | Bob Kumar | 8 |
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then stories appear in markdown as H4 subsections
+    And story "DAD-2653" appears under epic "DAD-2652"
+    And story "DAD-2654" appears under epic "DAD-2652"
+    And stories are ordered by key
+
+  Scenario: US-PB-1 - Story appears with key as clickable link
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira epic "DAD-2652" has story "DAD-2653" titled "Set up pod resource limits"
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then story key "DAD-2653" displays as clickable link
+    And story link URL is "https://jira.takeda.com/browse/DAD-2653"
+
+  Scenario: US-PB-2 - Story acceptance criteria displayed
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira epic "DAD-2652" has story "DAD-2653" with description:
+      | Configure memory and CPU limits |
+      | Validate in staging environment |
+      | Run performance tests |
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then story "DAD-2653" has acceptance criteria section
+    And acceptance criteria contains:
+      | Configure memory and CPU limits |
+      | Validate in staging environment |
+      | Run performance tests |
+
+  Scenario: US-PB-3 - Story status from Jira displayed
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira epic "DAD-2652" has story "DAD-2653" with status "In Progress"
+    And Jira epic "DAD-2652" has story "DAD-2654" with status "To Do"
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then story "DAD-2653" shows status "In Progress"
+    And story "DAD-2654" shows status "To Do"
+
+  Scenario: US-PB-3 - Story status is read-only in markdown
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira epic "DAD-2652" has story "DAD-2653" with status "In Progress"
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then story status displayed as metadata field
+    And story status not editable in markdown
+    But user can manually change status and push to sync
+
+  Scenario: US-PB-1 - Story metadata (assignee and points) displayed
+    Given Feature "Semantic Versioning & CI/CD" (ID=2018883) linked to objective 2019099 with Jira Key "DAD-2652"
+    And Jira epic "DAD-2652" has stories:
+      | DAD-2653 | Set up pod resource limits | In Progress | Alice Chen | 5 |
+      | DAD-2654 | Implement alerting rules | To Do | Bob Kumar | 8 |
+    When markdown generator exports objectives with Jira story fetching for team="Platform Eco" release="PI-4/25"
+    Then story "DAD-2653" shows assignee "Alice Chen"
+    And story "DAD-2653" shows story points "5"
+    And story "DAD-2654" shows assignee "Bob Kumar"
+    And story "DAD-2654" shows story points "8"
+
+  Scenario: US-PB-4 - Jira token from environment variable
+    Given environment variable "JIRA_TOKEN" is set
+    And environment variable "JIRA_URL" is set to "https://jira.takeda.com"
+    And Feature has Jira Key "DAD-2652"
+    When markdown generator exports objectives with Jira story fetching
+    Then Jira API is authenticated
+    And Jira token not logged in output
+
+  Scenario: US-PB-4 - Missing Jira credentials handled gracefully
+    Given environment variable "JIRA_TOKEN" is not set
+    And Feature has Jira Key "DAD-2652"
+    When markdown generator tries to export with Jira story fetching
+    Then clear error message about missing JIRA_TOKEN
+    And fallback to Phase 2A (show epic + Jira link, no stories)
+    And markdown remains valid
+
+  Scenario: US-PB-1 - Large number of stories handled efficiently
+    Given Feature "Large Epic" (ID=2018892) linked to objective 2019099 with Jira Key "DAD-2700"
+    And Jira epic "DAD-2700" has 100 stories
+    When markdown generator exports objectives with Jira story fetching
+    Then all 100 stories appear in markdown
+    And markdown generation completes in reasonable time
+    And markdown file size is reasonable
+
+  Scenario: US-PB-1 - API timeout handled gracefully
+    Given Feature "Timeout Test" (ID=2018893) linked to objective 2019099 with Jira Key "DAD-2750"
+    And Jira API timeout is set to 5 seconds
+    And Jira API takes longer than timeout
+    When markdown generator exports objectives with Jira story fetching
+    Then clear error message about API timeout
+    And fallback to Phase 2A (show epic + Jira link, no stories)
+    And markdown remains valid
+
+  Scenario: US-PB-1 - Missing epic returns no stories gracefully
+    Given Feature "Orphan Epic" (ID=2018894) linked to objective 2019099 with Jira Key "MISSING-999"
+    And Jira epic "MISSING-999" does not exist
+    When markdown generator exports objectives with Jira story fetching
+    Then epic section renders without error
+    And no stories appear for epic
+    But epic metadata (Jira link) still displays
+
+  Scenario: US-PB-3 - Various Jira status values supported
+    Given Feature "Status Test Epic" (ID=2018895) linked to objective 2019099 with Jira Key "DAD-2800"
+    And Jira epic "DAD-2800" has stories with various statuses:
+      | DAD-2801 | Story 1 | To Do |
+      | DAD-2802 | Story 2 | In Progress |
+      | DAD-2803 | Story 3 | In Review |
+      | DAD-2804 | Story 4 | Done |
+      | DAD-2805 | Story 5 | Blocked |
+    When markdown generator exports objectives with Jira story fetching
+    Then all story statuses appear correctly in markdown
+    And no status rendering errors
+
