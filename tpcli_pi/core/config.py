@@ -106,35 +106,38 @@ def get_tp_url() -> str | None:
     """Get TargetProcess URL from config or environment.
 
     Priority:
-    1. Config file (tp-url key)
-    2. Environment variable (TP_URL)
-    3. None (will use API client default)
+    1. Config file (url key - shared with Go CLI)
+    2. Config file (tp-url key - backward compatibility)
+    3. Environment variable (TP_URL)
+    4. None (will use API client default)
 
     Returns:
         TargetProcess URL, or None if not set
     """
     config = load_config()
-    return config.get("tp-url") or os.getenv("TP_URL")
+    return config.get("url") or config.get("tp-url") or os.getenv("TP_URL")
 
 
 def get_tp_token() -> str | None:
     """Get TargetProcess API token from config or environment.
 
     Priority:
-    1. Config file (tp-token key)
-    2. Config file (api-token key for backward compatibility)
-    3. Environment variable (TP_TOKEN)
-    4. Environment variable (TARGETPROCESS_API_TOKEN for backward compatibility)
-    5. None (will require user to set one)
+    1. Config file (token key - shared with Go CLI)
+    2. Config file (tp-token key - backward compatibility)
+    3. Config file (api-token key for backward compatibility)
+    4. Environment variable (TP_TOKEN)
+    5. Environment variable (TARGETPROCESS_API_TOKEN for backward compatibility)
+    6. None (will require user to set one)
 
     Returns:
         TargetProcess API token, or None if not set
     """
     config = load_config()
-    # Try new key first, then backward compat keys
+    # Try keys in order of preference: Go CLI shared key first, then backward compat keys
     token = (
-        config.get("tp-token")
-        or config.get("api-token")  # Old key name
+        config.get("token")  # Shared with Go CLI
+        or config.get("tp-token")  # Old Python-only key
+        or config.get("api-token")  # Even older key name
         or os.getenv("TP_TOKEN")
         or os.getenv("TARGETPROCESS_API_TOKEN")
     )
