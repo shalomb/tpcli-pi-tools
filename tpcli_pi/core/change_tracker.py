@@ -38,6 +38,116 @@ class ChangeSource:
     new_timestamp: Optional[str] = None
 
 
+@dataclass
+class AuditLogEntry:
+    """Single entry in an operation audit log."""
+    timestamp: str
+    operation: str  # "pull", "push", "user_edit", "conflict_detected"
+    direction: Optional[str] = None  # "tp_to_git" or "git_to_tp"
+    objectives_synced: int = 0
+    epics_synced: int = 0
+    stories_synced: int = 0
+    objectives_updated: int = 0
+    epics_updated: int = 0
+    conflicts: int = 0
+    status: str = "success"  # or "conflict_detected", "error"
+
+
+class AuditLog:
+    """
+    Maintains audit trail of all sync operations.
+
+    Tracks:
+    - Pull operations (TP to Git sync)
+    - Push operations (Git to TP sync)
+    - User edits
+    - Conflict detections
+    """
+
+    def __init__(self):
+        """Initialize audit log."""
+        self.entries: List[AuditLogEntry] = []
+
+    def log_pull(self, timestamp: str, objectives: int, epics: int, stories: int,
+                 conflicts: int = 0, status: str = "success") -> None:
+        """Log a pull operation (TP → Git)."""
+        entry = AuditLogEntry(
+            timestamp=timestamp,
+            operation="pull",
+            direction="tp_to_git",
+            objectives_synced=objectives,
+            epics_synced=epics,
+            stories_synced=stories,
+            conflicts=conflicts,
+            status=status,
+        )
+        self.entries.append(entry)
+
+    def log_push(self, timestamp: str, objectives: int, epics: int = 0,
+                 status: str = "success") -> None:
+        """Log a push operation (Git → TP)."""
+        entry = AuditLogEntry(
+            timestamp=timestamp,
+            operation="push",
+            direction="git_to_tp",
+            objectives_updated=objectives,
+            epics_updated=epics,
+            status=status,
+        )
+        self.entries.append(entry)
+
+    def log_conflict(self, timestamp: str, num_conflicts: int) -> None:
+        """Log conflict detection."""
+        entry = AuditLogEntry(
+            timestamp=timestamp,
+            operation="conflict_detected",
+            conflicts=num_conflicts,
+            status="conflict_detected",
+        )
+        self.entries.append(entry)
+
+    def get_entries(self) -> List[AuditLogEntry]:
+        """Get all audit log entries."""
+        return self.entries
+
+    def get_last_pull(self) -> Optional[AuditLogEntry]:
+        """Get the most recent pull operation."""
+        for entry in reversed(self.entries):
+            if entry.operation == "pull":
+                return entry
+        return None
+
+    def get_conflicts_count(self) -> int:
+        """Get total number of conflicts detected."""
+        return sum(entry.conflicts for entry in self.entries)
+
+    def export_to_dict(self) -> List[Dict[str, Any]]:
+        """Export audit log as list of dicts (for JSON serialization)."""
+        result = []
+        for entry in self.entries:
+            entry_dict = {
+                "timestamp": entry.timestamp,
+                "operation": entry.operation,
+                "status": entry.status,
+            }
+            if entry.direction:
+                entry_dict["direction"] = entry.direction
+            if entry.objectives_synced > 0:
+                entry_dict["objectives_synced"] = entry.objectives_synced
+            if entry.epics_synced > 0:
+                entry_dict["epics_synced"] = entry.epics_synced
+            if entry.stories_synced > 0:
+                entry_dict["stories_synced"] = entry.stories_synced
+            if entry.objectives_updated > 0:
+                entry_dict["objectives_updated"] = entry.objectives_updated
+            if entry.epics_updated > 0:
+                entry_dict["epics_updated"] = entry.epics_updated
+            if entry.conflicts > 0:
+                entry_dict["conflicts"] = entry.conflicts
+            result.append(entry_dict)
+        return result
+
+
 class ChangeTracker:
     """
     Detect change sources from git diffs and markdown files.
@@ -345,6 +455,54 @@ class ChangeTracker:
         # Return all fields that were changed (in either direction)
         all_changed_fields = {c.field_name for c in user_edits + jira_updates}
         return sorted(all_changed_fields)
+
+    def generate_conflict_hints(self, changes: List[ChangeSource]) -> List[str]:
+        """
+        Generate smart hints for resolving conflicts.
+
+        Strategy:
+        - If user edited field X and Jira updated field Y in same section:
+          Hint: "Keep user's X change, accept Jira's Y update"
+        - If both edited same field in different ways (rare):
+          Hint: "Manual resolution needed for X"
+        - No conflicts: Empty list
+
+        Args:
+            changes: List of detected changes
+
+        Returns:
+            List of hint messages for user
+        """
+        hints = []
+
+        user_edits = self.detect_user_edits(changes)
+        jira_updates = self.detect_jira_updates(changes)
+
+        if not (user_edits and jira_updates):
+            return hints  # No conflict
+
+        # Organize by field
+        user_fields = {c.field_name for c in user_edits}
+        jira_fields = {c.field_name for c in jira_updates}
+
+        # Fields changed by both (same field edited locally and updated by Jira)
+        same_field_conflicts = user_fields & jira_fields
+        if same_field_conflicts:
+            for field in sorted(same_field_conflicts):
+                hints.append(f"⚠️  Both you and Jira edited '{field}' - manual resolution needed")
+
+        # Fields changed by only one side (complementary changes)
+        user_only = user_fields - jira_fields
+        jira_only = jira_fields - user_fields
+
+        if user_only and jira_only:
+            user_str = ", ".join(sorted(user_only))
+            jira_str = ", ".join(sorted(jira_only))
+            hints.append(f"✓ You edited: {user_str}")
+            hints.append(f"✓ Jira updated: {jira_str}")
+            hints.append("These changes are compatible - both can be kept")
+
+        return hints
 
     def get_change_summary(self, changes: List[ChangeSource]) -> Dict[str, Any]:
         """
