@@ -22,9 +22,10 @@ source: TargetProcess + Jira Integration (Exploration-Driven Fixtures)
 
 - **Status:** In Progress
 - **Commitment:** ✓ COMMITTED
-- **Effort:** 21 points
+- **Effort:** 21 points (refined from exploration)
 - **ID:** TP-2029314
-- **Description:** Establish repeatable deployment patterns for Amazon MSK
+- **Owner:** Alice Chen (Cloud Infrastructure)
+- **Description:** Establish repeatable deployment patterns for Amazon MSK with terraform and helm charts
 
 ### 2. Prove an Observability Pattern for CIM
 
@@ -58,10 +59,11 @@ source: TargetProcess + Jira Integration (Exploration-Driven Fixtures)
 **Description:** Building block for AWS AppStream 2.0 based workspace applications enabling remote access and desktop virtualization for cloud enablement platform.
 
 **Acceptance Criteria:**
-- [ ] AppStream 2.0 baseline configuration deployed
-- [ ] Multi-user session management tested
-- [ ] Performance benchmarks meet requirements
-- [ ] Cost optimization analyzed
+- [x] AppStream 2.0 baseline configuration deployed (Jan 1)
+- [x] Multi-user session management tested (Jan 2)
+- [ ] Performance benchmarks meet requirements (target: 100ms response)
+- [ ] Cost optimization analyzed (target: <$500/month for dev)
+- [ ] Documentation complete with runbooks
 
 ---
 
