@@ -380,3 +380,135 @@ Feature: Markdown Generation from TargetProcess Data
     Then all story statuses appear correctly in markdown
     And no status rendering errors
 
+  # Phase 2C: Change Attribution & Conflict Resolution Tests
+
+  Scenario: UC-PC-1 - Sync timestamps included in frontmatter
+    Given Team "Platform Eco" exists in ART "Data, Analytics and Digital"
+    And Release "PI-4/25" exists for the ART
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then YAML frontmatter includes "exported_at" timestamp
+    And objectives array includes "synced_at" for each objective
+    And timestamps are ISO 8601 format
+
+  Scenario: UC-PC-2 - Sections include last synced metadata
+    Given Feature "Governance Framework" (ID=1001) linked to objective 2019099
+    When markdown generator exports objectives for team="Platform Eco" release="PI-4/25"
+    Then objective section includes "**Last Synced**" metadata
+    And epic section includes "**Last Synced**" metadata
+    And story section includes "**Last Synced**" metadata
+
+  Scenario: UC-PC-3 - Detect user edited effort estimate
+    Given markdown file with objective effort=21
+    And objective **Last Synced** at "2025-12-01T10:30:00"
+    When user manually edits effort to 34 in markdown
+    And user does NOT edit **Last Synced** timestamp
+    Then system detects: "User edit to effort"
+    And source is: "User"
+    And change timestamp is: current time (not sync time)
+
+  Scenario: UC-PC-4 - Detect Jira updated story status
+    Given markdown file with story status="To Do"
+    And story **Last Synced** at "2025-12-01T10:30:00"
+    When Jira API pull happens at "2025-12-01T11:00:00"
+    And story status changed to "In Progress"
+    And story **Last Synced** timestamp updated to "2025-12-01T11:00:00"
+    Then system detects: "Jira updated story status"
+    And source is: "Jira"
+    And change timestamp is: sync timestamp
+
+  Scenario: UC-PC-5 - Conflict: user and Jira both changed same field
+    Given markdown file with story status="To Do" synced at "2025-12-01T10:30:00"
+    When user locally edits story status to "In Progress"
+    And Jira also changed story status to "In Review"
+    And new pull happens at "2025-12-01T11:00:00"
+    Then git merge conflict detected
+    And conflict includes source hints:
+      | User changed to: In Progress |
+      | Jira changed to: In Review |
+    And suggestion provided: "Accept Jira update? User can re-edit if needed"
+
+  Scenario: UC-PC-6 - No conflict: user and Jira changed different fields
+    Given markdown file with story status="To Do" effort="5" synced at "2025-12-01T10:30:00"
+    When user edits effort to "8"
+    And Jira updates status to "In Progress"
+    And pull happens at "2025-12-01T11:00:00"
+    Then no git merge conflict
+    And both changes accepted (user effort + Jira status)
+
+  Scenario: UC-PC-7 - Audit log records pull operation
+    Given no previous audit log
+    When user runs "tpcli plan pull"
+    And pull succeeds with 2 objectives, 5 epics, 12 stories synced
+    Then audit log entry created with:
+      | operation: pull |
+      | timestamp: 2025-12-01T10:30:00 |
+      | objectives_synced: 2 |
+      | epics_synced: 5 |
+      | stories_synced: 12 |
+      | status: success |
+
+  Scenario: UC-PC-8 - Audit log records user edits
+    Given audit log exists with previous pull
+    When user edits objectives.md and changes effort from 21 to 34
+    Then audit log entry added with:
+      | operation: user_edit |
+      | timestamp: <current time> |
+      | file: objectives.md |
+      | changes: [{"field": "effort", "objective": "2019099", "from": 21, "to": 34}] |
+
+  Scenario: UC-PC-9 - Audit log records push operation
+    Given audit log exists with user edits
+    When user runs "tpcli plan push"
+    And push succeeds updating 1 objective
+    Then audit log entry created with:
+      | operation: push |
+      | direction: git_to_tp |
+      | objectives_updated: 1 |
+      | status: success |
+
+  Scenario: UC-PC-10 - Audit log records merge conflicts
+    Given audit log exists with successful pull
+    And user made local edits
+    When second pull happens with conflicting Jira changes
+    Then conflict detected
+    And audit log entry records:
+      | operation: pull |
+      | status: conflict_detected |
+      | conflicts: 1 |
+      | conflict_hints: ["Keep user's effort edit, accept Jira's status update"] |
+
+  Scenario: UC-PC-11 - Conflict hints file generated
+    Given markdown pull results in merge conflict
+    When git merge conflict occurs
+    Then .conflict-hints.txt file generated in repo with:
+      | Conflict in: Objective 2019099 (Platform governance) |
+      | User changed: effort from 21 to 34 points |
+      | Jira changed: status from Pending to In Progress |
+      | Suggestion: Accept Jira status, keep your effort edit |
+      | Next: Resolve manually, then push again |
+
+  Scenario: UC-PC-12 - Timestamp helps identify stale sections
+    Given markdown exported at "2025-12-01T10:30:00"
+    And user makes edits at "2025-12-01T11:00:00"
+    And another pull happens at "2025-12-01T12:00:00"
+    When user views markdown
+    Then Last Synced timestamps visible
+    And user can see: "This section synced 2 hours ago"
+    And user can identify: "My edits are <1 hour old"
+
+  Scenario: UC-PC-13 - No timestamp update on user-only edit
+    Given objective synced at "2025-12-01T10:30:00"
+    When user edits objective name locally
+    And does NOT run pull
+    Then **Last Synced** timestamp remains "2025-12-01T10:30:00"
+    And timestamp reflects when TP data was last fetched
+
+  Scenario: UC-PC-14 - Clock skew handling
+    Given system clock is 30 minutes ahead of TP server
+    When pull happens from TP
+    And markdown timestamp is "2025-12-01T11:00:00+00:00" (TP time)
+    And local timestamp shows "2025-12-01T11:30:00+00:00"
+    Then system handles gracefully
+    And uses TP timestamp as canonical source
+    And no false conflicts detected
+
