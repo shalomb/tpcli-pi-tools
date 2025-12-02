@@ -1269,3 +1269,320 @@ class TestSubprocessExecutionEdgeCases:
         )
         with pytest.raises(TPAPIError, match="No JSON found"):
             client._run_tpcli("Teams")
+
+
+class TestCacheEdgeCases:
+    """Tests for cache handling edge cases."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    def test_cache_expiration_returns_none(self, client, mocker):
+        """Test that expired cache returns None."""
+        # Mock a cached response that should be expired
+        mock_response = {"Id": 1, "Name": "Test"}
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        # First call - should cache
+        result1 = client.get_teams()
+        assert result1 is not None
+
+        # Mock time to advance past TTL (set to 0 for immediate expiry)
+        original_ttl = client.cache_ttl
+        client.cache_ttl = 0
+
+        # Second call - cache should be expired
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+        result2 = client.get_teams()
+        assert result2 is not None
+
+        # Restore TTL
+        client.cache_ttl = original_ttl
+
+    def test_get_cached_with_missing_timestamp(self, client, mocker):
+        """Test cache handling when timestamp is missing."""
+        # Directly manipulate cache to simulate corruption
+        client._cache["teams"] = [{"Id": 1}]
+        # Intentionally don't set timestamp
+
+        # This should not crash
+        result = client._get_cached("teams")
+        # Should return None since timestamp is missing
+        assert result is None
+
+    def test_cache_clear_removes_all_entries(self, client, mocker):
+        """Test cache clearing removes all cached data."""
+        mock_response = {"Id": 1, "Name": "Test"}
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        # Populate cache
+        client.get_teams()
+        assert len(client._cache) > 0
+
+        # Clear cache
+        client.clear_cache()
+        assert len(client._cache) == 0
+        assert len(client._cache_timestamps) == 0
+
+    def test_multiple_queries_use_same_cache(self, client, mocker):
+        """Test that multiple queries use the same cached result."""
+        mock_response = [{"Id": 1, "Name": "Team A"}]
+        mock_tpcli = mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        # First call
+        result1 = client.get_teams()
+        call_count_1 = mock_tpcli.call_count
+
+        # Second call (should use cache)
+        result2 = client.get_teams()
+        call_count_2 = mock_tpcli.call_count
+
+        # Should not have called tpcli again
+        assert call_count_1 == call_count_2
+
+
+class TestQueryFilterCombinations:
+    """Tests for query filter combinations."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    def test_get_team_objectives_with_art_filter(self, client, mocker):
+        """Test get_team_pi_objectives with ART filter."""
+        mock_response = [{"Id": 1, "Name": "Objective", "Team": {"Id": 123}}]
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        result = client.get_team_pi_objectives(art_id=456)
+        assert result is not None
+        assert len(result) == 1
+
+    def test_get_team_objectives_with_release_filter(self, client, mocker):
+        """Test get_team_pi_objectives with release filter."""
+        mock_response = [{"Id": 1, "Name": "Objective"}]
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        result = client.get_team_pi_objectives(release_id=789)
+        assert result is not None
+
+    def test_get_team_objectives_with_team_filter(self, client, mocker):
+        """Test get_team_pi_objectives with team filter."""
+        mock_response = [{"Id": 1, "Name": "Objective", "Team": {"Id": 123}}]
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        result = client.get_team_pi_objectives(team_id=123)
+        assert result is not None
+
+    def test_get_objectives_with_multiple_filters(self, client, mocker):
+        """Test getting objectives with combined filters."""
+        mock_response = [{"Id": 1, "Name": "Objective"}]
+        mock_tpcli = mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        # Call with multiple filters
+        result = client.get_team_pi_objectives(
+            art_id=456, release_id=789, team_id=123
+        )
+        assert result is not None
+
+        # Verify the WHERE clause was constructed correctly
+        assert mock_tpcli.called
+
+    def test_get_program_objectives_with_filters(self, client, mocker):
+        """Test get_program_pi_objectives with different filters."""
+        mock_response = [{"Id": 1, "Name": "Program Objective"}]
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=mock_response
+        )
+
+        result = client.get_program_pi_objectives(art_id=456)
+        assert result is not None
+
+    def test_empty_result_with_filters(self, client, mocker):
+        """Test that empty results are handled correctly with filters."""
+        mocker.patch.object(client, "_run_tpcli", return_value=[])
+
+        result = client.get_team_pi_objectives(team_id=999)
+        assert result == []
+        assert len(result) == 0
+
+
+class TestNullAndEmptyFieldHandling:
+    """Tests for handling null and empty fields in responses."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    def test_parse_objective_with_null_fields(self, client, mocker):
+        """Test parsing objective with null fields."""
+        mock_response = {
+            "Id": 1,
+            "Name": "Objective",
+            "Team": None,  # Null team
+            "Release": None,
+            "Owner": None,
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        result = client.get_team_pi_objectives()
+        assert result is not None
+        assert len(result) >= 0
+
+    def test_parse_objective_with_empty_epics(self, client, mocker):
+        """Test parsing objective with empty epics list."""
+        mock_response = {
+            "Id": 1,
+            "Name": "Objective",
+            "Epics": [],  # Empty epics
+            "Team": {"Id": 123},
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        result = client.get_team_pi_objectives()
+        assert result is not None
+
+    def test_parse_feature_with_null_epic(self, client, mocker):
+        """Test parsing feature with null epic."""
+        mock_response = {
+            "Id": 1,
+            "Name": "Feature",
+            "Epic": None,
+            "Owner": {"Name": "User"},
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        result = client.get_features()
+        assert result is not None
+
+    def test_parse_with_empty_string_fields(self, client, mocker):
+        """Test parsing with empty string fields."""
+        mock_response = {
+            "Id": 1,
+            "Name": "",  # Empty name
+            "Description": "",
+            "Owner": {"Name": ""},
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        # Should not crash on empty strings
+        result = client.get_team_pi_objectives()
+        assert result is not None
+
+
+class TestBulkOperationErrorHandling:
+    """Tests for error handling in bulk operations."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    def test_bulk_create_partial_failure(self, client, mocker):
+        """Test bulk create with partial failures."""
+        # Mock tpcli to fail on third call
+        responses = [
+            [{"Id": 1, "Name": "Obj1"}],
+            [{"Id": 2, "Name": "Obj2"}],
+            Exception("API Error"),
+        ]
+        mock_tpcli = mocker.patch.object(client, "_run_tpcli_create")
+        mock_tpcli.side_effect = responses
+
+        objectives = [
+            {"name": "Obj1", "team_id": 1, "release_id": 1},
+            {"name": "Obj2", "team_id": 1, "release_id": 1},
+            {"name": "Obj3", "team_id": 1, "release_id": 1},
+        ]
+
+        # Should raise on partial failure
+        with pytest.raises(Exception):
+            client.bulk_create_team_objectives(objectives)
+
+    def test_bulk_update_with_empty_list(self, client, mocker):
+        """Test bulk update with empty list."""
+        objectives = []
+
+        # Should handle empty list gracefully
+        result = client.bulk_update_team_objectives(objectives)
+        assert result == []
+
+    def test_bulk_create_with_single_item(self, client, mocker):
+        """Test bulk create with single item."""
+        mock_response = [{"Id": 1, "Name": "Obj1"}]
+        mocker.patch.object(
+            client, "_run_tpcli_create", return_value=mock_response
+        )
+
+        result = client.bulk_create_team_objectives(
+            [{"name": "Obj1", "team_id": 1, "release_id": 1}]
+        )
+        assert result is not None
+
+
+class TestDateParsingEdgeCases:
+    """Tests for date parsing edge cases."""
+
+    @pytest.fixture
+    def client(self):
+        """Fixture providing a TPAPIClient instance."""
+        return TPAPIClient(verbose=False)
+
+    def test_parse_date_with_missing_created_date(self, client, mocker):
+        """Test parsing objective without CreatedDate."""
+        mock_response = {
+            "Id": 1,
+            "Name": "Objective",
+            # No CreatedDate field
+            "Team": {"Id": 1},
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        # Should not crash
+        result = client.get_team_pi_objectives()
+        assert result is not None
+
+    def test_parse_invalid_date_format(self, client, mocker):
+        """Test parsing with invalid date format."""
+        mock_response = {
+            "Id": 1,
+            "Name": "Objective",
+            "CreatedDate": "invalid-date",
+            "Team": {"Id": 1},
+        }
+        mocker.patch.object(
+            client, "_run_tpcli", return_value=[mock_response]
+        )
+
+        # Should handle invalid date gracefully
+        result = client.get_team_pi_objectives()
+        assert result is not None

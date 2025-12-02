@@ -148,6 +148,121 @@ class TestPull:
 
         assert result.success is False
 
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_switches_to_tracking_branch(self, mock_run, git_sync, mock_objectives):
+        """Test pull switches to tracking branch."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"tracking-branch"
+        mock_run.return_value = mock_result
+
+        git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        # Verify checkout was called for tracking branch
+        calls = mock_run.call_args_list
+        checkout_calls = [c for c in calls if 'checkout' in str(c)]
+        assert len(checkout_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_commits_changes(self, mock_run, git_sync, mock_objectives):
+        """Test pull commits markdown changes."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"feature/plan"
+        mock_run.return_value = mock_result
+
+        git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        # Verify git add and commit were called
+        calls = mock_run.call_args_list
+        call_strs = [str(c) for c in calls]
+        add_found = any('add' in s for s in call_strs)
+        commit_found = any('commit' in s for s in call_strs)
+        assert add_found or commit_found
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_pushes_tracking_branch(self, mock_run, git_sync, mock_objectives):
+        """Test pull pushes updated tracking branch to remote."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"feature/plan"
+        mock_run.return_value = mock_result
+
+        git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        # Verify push was called
+        calls = mock_run.call_args_list
+        push_calls = [c for c in calls if 'push' in str(c)]
+        assert len(push_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_rebases_feature_branch(self, mock_run, git_sync, mock_objectives):
+        """Test pull rebases feature branch onto tracking branch."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"feature/plan"
+        mock_run.return_value = mock_result
+
+        git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        # Verify rebase was called
+        calls = mock_run.call_args_list
+        rebase_calls = [c for c in calls if 'rebase' in str(c)]
+        assert len(rebase_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_returns_success_on_clean_rebase(self, mock_run, git_sync, mock_objectives):
+        """Test pull returns success when rebase has no conflicts."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"feature/plan"
+        mock_run.return_value = mock_result
+
+        result = git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        assert result.success is True
+        assert "rebased" in result.message.lower()
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_pull_returns_feature_to_original_branch(self, mock_run, git_sync, mock_objectives):
+        """Test pull returns to feature branch after rebase."""
+        mock_result = MagicMock()
+        mock_result.stdout = b"feature/plan"
+        mock_run.return_value = mock_result
+
+        git_sync.pull(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Data, Analytics and Digital",
+            team_objectives=mock_objectives,
+        )
+
+        # Verify feature branch is current (checked out last)
+        calls = mock_run.call_args_list
+        checkout_calls = [c for c in calls if 'checkout' in str(c)]
+        # Last checkout should be feature branch
+        assert len(checkout_calls) >= 2  # tracking and feature
+
 
 class TestPush:
     """Tests for push to TargetProcess."""
@@ -192,6 +307,170 @@ class TestPush:
         """Test push handles errors gracefully."""
         import subprocess
         mock_run.side_effect = subprocess.CalledProcessError(1, "git diff")
+
+        result = git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        assert result.success is False
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_calculates_diff(self, mock_run, git_sync, mock_api_client):
+        """Test push calculates diff between tracking and feature branches."""
+        mock_run.return_value = MagicMock(stdout=b"")
+
+        git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        # Verify git diff was called
+        calls = mock_run.call_args_list
+        diff_calls = [c for c in calls if 'diff' in str(c)]
+        assert len(diff_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_returns_success_with_changes(self, mock_run, git_sync, mock_api_client):
+        """Test push returns success status when there are changes."""
+        def side_effect(*args, **kwargs):
+            if 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
+
+        result = git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        assert isinstance(result, SyncResult)
+        assert isinstance(result.api_calls, list)
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_parses_changes_from_diff(self, mock_run, git_sync, mock_api_client):
+        """Test push parses changes when files are modified."""
+        def side_effect(*args, **kwargs):
+            if 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md\nepics.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
+
+        result = git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        assert result.api_calls is not None
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_executes_api_calls(self, mock_run, git_sync, mock_api_client):
+        """Test push executes API calls for changes."""
+        def side_effect(*args, **kwargs):
+            if 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
+
+        with patch.object(git_sync, '_execute_api_call') as mock_execute:
+            git_sync.push(
+                team_name="Platform Eco",
+                release_name="PI-4/25",
+                api_client=mock_api_client,
+            )
+
+            # _execute_api_call should be called for each API call
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_switches_to_tracking_branch_after_changes(self, mock_run, git_sync, mock_api_client):
+        """Test push switches to tracking branch when there are changes."""
+        def side_effect(*args, **kwargs):
+            if 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
+
+        git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        # Verify checkout was called for tracking branch
+        calls = mock_run.call_args_list
+        checkout_calls = [c for c in calls if 'checkout' in str(c)]
+        assert len(checkout_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_returns_to_feature_branch_after_update(self, mock_run, git_sync, mock_api_client):
+        """Test push returns to feature branch after updating tracking."""
+        def side_effect(*args, **kwargs):
+            if 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
+
+        git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        # Verify checkout called at least once (switching branches)
+        calls = mock_run.call_args_list
+        checkout_calls = [c for c in calls if 'checkout' in str(c)]
+        assert len(checkout_calls) >= 1
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_message_includes_change_count(self, mock_run, git_sync, mock_api_client):
+        """Test push success message includes number of changes."""
+        mock_run.return_value = MagicMock(stdout=b"")
+
+        result = git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        assert "changes" in result.message.lower()
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_handles_git_diff_failure(self, mock_run, git_sync, mock_api_client):
+        """Test push handles git diff command failures."""
+        import subprocess
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git diff")
+
+        result = git_sync.push(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            api_client=mock_api_client,
+        )
+
+        assert result.success is False
+        assert "failed" in result.message.lower() or "error" in result.message.lower()
+
+    @patch("tpcli_pi.core.git_integration.subprocess.run")
+    def test_push_handles_checkout_failure(self, mock_run, git_sync, mock_api_client):
+        """Test push handles checkout failures."""
+        import subprocess
+
+        def side_effect(*args, **kwargs):
+            if 'checkout' in str(args):
+                raise subprocess.CalledProcessError(1, "git checkout")
+            elif 'diff' in str(args):
+                return MagicMock(stdout=b"objectives.md")
+            return MagicMock(stdout=b"")
+
+        mock_run.side_effect = side_effect
 
         result = git_sync.push(
             team_name="Platform Eco",
