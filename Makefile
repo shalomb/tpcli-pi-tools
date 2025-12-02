@@ -116,6 +116,11 @@ install: venv tpcli
 		mkdir -p "$${HOME}/.local/bin"; \
 		cp "$(TPCLI_BIN)" "$${HOME}/.local/bin/tpcli"; \
 		echo "$(GREEN)✓ tpcli binary installed: ~/.local/bin/tpcli$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)⚠ IMPORTANT: Clear your shell's command cache:$(NC)"; \
+		echo "   hash -r"; \
+		echo "   (or restart your shell/tmux session)"; \
+		echo ""; \
 	fi
 	echo "$(GREEN)✓ Installation complete$(NC)"
 	echo ""
@@ -290,11 +295,23 @@ uat:
 		printf "✓ Using default-team: $$DEFAULT_TEAM\n"; \
 	fi
 	printf "\n"
-	printf "$(GREEN)Step 2: List available extensions$(NC)\n"
+	printf "$(GREEN)Step 2: Test tpcli binary directly (with config auth)$(NC)\n"
+	export PATH="$$HOME/.local/bin:$$PATH"; \
+	printf "  Testing: tpcli list Teams (should read credentials from config)\n"; \
+	bash -c 'tpcli list Teams --take 1' > /tmp/uat-tpcli-direct.out 2>&1; \
+	if grep -q '"Id"' /tmp/uat-tpcli-direct.out; then \
+		printf "  $(GREEN)✓ tpcli reads config and authenticates successfully$(NC)\n"; \
+	else \
+		printf "  $(RED)✗ tpcli failed to authenticate$(NC)\n"; \
+		cat /tmp/uat-tpcli-direct.out; \
+		exit 1; \
+	fi
+	printf "\n"
+	printf "$(GREEN)Step 3: List available extensions$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	tpcli ext list
 	printf "\n"
-	printf "$(GREEN)Step 3: Test direct extension calls WITHOUT explicit options (uses defaults)$(NC)\n"
+	printf "$(GREEN)Step 4: Test direct extension calls WITHOUT explicit options (uses defaults)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	printf "  Testing: team-deep-dive (should use default-team from config)\n"; \
 	team-deep-dive > /tmp/uat-team-deep-dive.out 2>&1; \
@@ -306,7 +323,7 @@ uat:
 		exit 1; \
 	fi
 	printf "\n"
-	printf "$(GREEN)Step 4: Test tpcli ext wrapper (without explicit options)$(NC)\n"
+	printf "$(GREEN)Step 5: Test tpcli ext wrapper (without explicit options)$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	printf "  Testing: tpcli ext team-deep-dive (should use default-team from config)\n"; \
 	tpcli ext team-deep-dive > /tmp/uat-ext-wrapper.out 2>&1; \
@@ -318,7 +335,7 @@ uat:
 		exit 1; \
 	fi
 	printf "\n"
-	printf "$(GREEN)Step 5: Test from arbitrary directory (/tmp) without explicit options$(NC)\n"
+	printf "$(GREEN)Step 6: Test from arbitrary directory (/tmp) without explicit options$(NC)\n"
 	export PATH="$$HOME/.local/bin:$$PATH"; \
 	cwd=$$(pwd); \
 	cd /tmp; \
