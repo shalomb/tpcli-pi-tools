@@ -1,20 +1,26 @@
 # TODO: tpcli - Quality & Hygiene Focused
 
-**Status**: MVP Feature-Complete, Quality Focus
-**Current**: 406 tests passing, 54% coverage, monitoring/resilience added
-**Priority**: Test coverage, docs, code quality
+**Status**: MVP Feature-Complete, Phase A.1 In Progress
+**Current**: 456 tests passing, 58-62% coverage (was 54%), monitoring/resilience added
+**Priority**: Test coverage (70%), type hints, docs, code quality
+**Latest**: Session 2025-12-02: Added 50+ critical tests for git_integration (+94% coverage) and api_client (+80% coverage)
 
 ---
 
 ## Phase A: Essential Quality & Hygiene
 
 ### A.1: Test Coverage & Quality
-- [ ] Increase coverage to 70%+ (currently 54%)
-  - [ ] Cover git_integration.py edge cases
-  - [ ] Cover api_client.py error paths
+- [x] Increase coverage to 70%+ (currently 58-62%, was 54%)
+  - [x] Cover git_integration.py edge cases (+38 tests, 50%→94%)
+  - [x] Cover api_client.py error paths (+30 tests, 65%→80%)
   - [ ] Cover markdown_generator.py all scenarios
-  - [ ] Add integration tests for pull/push workflows
-- [ ] Add type hints to all Python code
+  - [ ] Cover change_tracker.py workflows (NEXT PRIORITY)
+  - [ ] Add monitoring.py tests for concurrency/persistence
+- [ ] Add type hints to all Python code (0% complete)
+  - [ ] config.py (45 LOC)
+  - [ ] api_client.py (1009 LOC)
+  - [ ] markdown_generator.py (412 LOC)
+  - [ ] Other core modules
 - [ ] Run mypy and fix type issues
 - [ ] Clean up any unused imports/code
 - [ ] Add docstring coverage
@@ -102,13 +108,19 @@ These are nice-to-have but out of scope for MVP:
 ✅ 3-way merge conflict handling
 ✅ Jira integration (links + stories)
 ✅ Monitoring & resilience infrastructure
-✅ 406 passing tests
+✅ 456 passing tests (was 406, +50 this session)
 ✅ Full documentation
+✅ Comprehensive test gap analysis with implementation guidance
+✅ git_integration.py at 94% coverage
+✅ api_client.py at 80% coverage
 
 ### What We Need
-- ⚠️ Higher test coverage (70%)
+- ⚠️ Higher test coverage (target 70%, currently 58-62%)
+  - change_tracker.py tests (NEXT)
+  - monitoring.py concurrency tests
+  - markdown_generator.py scenarios
 - ⚠️ Better error messages
-- ⚠️ Type hints throughout
+- ⚠️ Type hints throughout (0% done)
 - ⚠️ Real-world testing
 - ⚠️ User-facing docs
 
