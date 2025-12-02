@@ -10,6 +10,7 @@ import requests
 from typing import Any, Optional, List
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from . import config as config_module
 
 
 @dataclass
@@ -51,15 +52,21 @@ class JiraAPIClient:
         """
         Initialize Jira API client.
 
+        Credentials sourced from (in priority order):
+        1. Constructor parameters (for tests/programmatic use)
+        2. Config file (~/.config/tpcli/config.yaml) with keys: jira-url, jira-token
+        3. Environment variables: JIRA_URL, JIRA_TOKEN
+        4. Default URL: https://jira.takeda.com
+
         Args:
             base_url: Jira instance URL (e.g., https://jira.takeda.com)
-            token: Jira API token (or load from JIRA_TOKEN env var)
+            token: Jira API token
             timeout: API request timeout in seconds
             max_retries: Number of retries for rate-limited requests
         """
-        # Allow loading from environment if not provided
-        self.base_url = base_url or os.getenv("JIRA_URL", "https://jira.takeda.com")
-        self.token = token or os.getenv("JIRA_TOKEN", "")
+        # Priority: constructor param > config file > env var > default
+        self.base_url = base_url or config_module.get_jira_url()
+        self.token = token or config_module.get_jira_token() or ""
         self.timeout = timeout
         self.max_retries = max_retries
 

@@ -70,3 +70,33 @@ def get_default_team() -> str | None:
     """
     config = load_config()
     return config.get("default-team")
+
+
+def get_jira_url() -> str:
+    """Get Jira URL from config or environment.
+
+    Priority:
+    1. Config file (jira-url key)
+    2. Environment variable (JIRA_URL)
+    3. Default (https://jira.takeda.com)
+
+    Returns:
+        Jira instance URL
+    """
+    config = load_config()
+    return config.get("jira-url") or os.getenv("JIRA_URL", "https://jira.takeda.com")
+
+
+def get_jira_token() -> str | None:
+    """Get Jira API token from config or environment.
+
+    Priority:
+    1. Config file (jira-token key)
+    2. Environment variable (JIRA_TOKEN)
+    3. None (will require user to set one)
+
+    Returns:
+        Jira API token, or None if not set
+    """
+    config = load_config()
+    return config.get("jira-token") or os.getenv("JIRA_TOKEN")

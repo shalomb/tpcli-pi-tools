@@ -16,6 +16,8 @@ from tpcli_pi.core.config import (
     load_config,
     get_default_art,
     get_default_team,
+    get_jira_url,
+    get_jira_token,
 )
 
 
@@ -320,5 +322,98 @@ default-team: "πρωτοποίηση (Prototyping)"
 
                 assert "数据分析" in config["default-art"]
                 assert "πρωτοποίηση" in config["default-team"]
+        finally:
+            Path(temp_path).unlink()
+
+
+class TestGetJiraUrl:
+    """Tests for get_jira_url() function."""
+
+    def test_get_jira_url_from_config(self) -> None:
+        """Test Jira URL from config file."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"jira-url": "https://jira.company.com"}
+            url = get_jira_url()
+            assert url == "https://jira.company.com"
+
+    def test_get_jira_url_from_environment(self) -> None:
+        """Test Jira URL from environment variable."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"JIRA_URL": "https://jira.env.com"}):
+                url = get_jira_url()
+                assert url == "https://jira.env.com"
+
+    def test_get_jira_url_config_takes_precedence_over_env(self) -> None:
+        """Test that config file takes precedence over environment."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"jira-url": "https://jira.config.com"}
+            with patch.dict(os.environ, {"JIRA_URL": "https://jira.env.com"}):
+                url = get_jira_url()
+                assert url == "https://jira.config.com"
+
+    def test_get_jira_url_default_when_not_set(self) -> None:
+        """Test default Takeda Jira URL when not configured."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {}, clear=True):
+                url = get_jira_url()
+                assert url == "https://jira.takeda.com"
+
+
+class TestGetJiraToken:
+    """Tests for get_jira_token() function."""
+
+    def test_get_jira_token_from_config(self) -> None:
+        """Test Jira token from config file."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"jira-token": "config-token-123"}
+            token = get_jira_token()
+            assert token == "config-token-123"
+
+    def test_get_jira_token_from_environment(self) -> None:
+        """Test Jira token from environment variable."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"JIRA_TOKEN": "env-token-456"}):
+                token = get_jira_token()
+                assert token == "env-token-456"
+
+    def test_get_jira_token_config_takes_precedence_over_env(self) -> None:
+        """Test that config file takes precedence over environment."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"jira-token": "config-token-123"}
+            with patch.dict(os.environ, {"JIRA_TOKEN": "env-token-456"}):
+                token = get_jira_token()
+                assert token == "config-token-123"
+
+    def test_get_jira_token_returns_none_when_not_set(self) -> None:
+        """Test that None is returned when token not configured."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {}, clear=True):
+                token = get_jira_token()
+                assert token is None
+
+    def test_jira_credentials_in_config_yaml(self) -> None:
+        """Test Jira credentials in complete config YAML."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("""
+default-art: "Test ART"
+default-team: "Test Team"
+jira-url: "https://jira.test.com"
+jira-token: "test-jira-token-xyz"
+""")
+            f.flush()
+            temp_path = f.name
+
+        try:
+            with patch("tpcli_pi.core.config._get_config_paths") as mock_paths:
+                mock_paths.return_value = [temp_path]
+                url = get_jira_url()
+                token = get_jira_token()
+
+                assert url == "https://jira.test.com"
+                assert token == "test-jira-token-xyz"
         finally:
             Path(temp_path).unlink()
