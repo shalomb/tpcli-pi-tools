@@ -1,22 +1,112 @@
-# Test Fixtures: Golden Files and API Cassettes
+# Test Fixtures: Builders, Golden Files, and API Cassettes
 
-This directory contains pre-recorded API responses (golden files) from TargetProcess. They enable fast, deterministic, offline testing without hitting the real API.
+This directory contains:
+1. **Fixture Builders** - Reusable builders to generate test data (no company data exposure)
+2. **Golden Files** - Pre-recorded API responses for deterministic testing
+3. **API Cassettes** - VCR cassettes for offline testing without hitting real APIs
+
+All fixture data is anonymized with generic names and sequential IDs.
 
 ## Directory Structure
 
 ```
 fixtures/
-├── go/              # Go unit test fixtures (JSON)
+├── builders.py                      # Fixture builders (TPFeatureBuilder, etc.)
+├── mock_data.py                     # Pytest fixtures for common scenarios
+├── go/                              # Go unit test fixtures (JSON)
 │   ├── create_objective_success.json
 │   ├── create_objective_invalid_json.json
 │   └── ...
-└── python/          # Python test cassettes (YAML - vcrpy format)
+└── python/                          # Python test cassettes (YAML - vcrpy format)
     ├── test_create_objective.yaml
     ├── test_update_objective.yaml
     └── ...
 ```
 
 ## Usage
+
+### Fixture Builders (Recommended for Unit Tests)
+
+The fixture builders enable creating realistic test data with zero risk of exposing company information. Use them when:
+- Testing API clients with mock data
+- Creating parameterized tests with multiple scenarios
+- Building composite scenarios with related entities
+
+#### Quick Example
+
+```python
+from tests.fixtures.builders import TPFeatureBuilder, JiraStoryBuilder
+
+# Create a single feature
+feature = (TPFeatureBuilder()
+    .with_id(1234)
+    .with_name("My Feature")
+    .with_team(999, "Platform Eco")
+    .with_jira_mapping("DAD-100", "Data Project")
+    .with_effort(21)
+    .build())
+
+# Create a Jira story
+story = (JiraStoryBuilder()
+    .with_key("DAD-100")
+    .with_summary("Implement feature")
+    .with_status("In Progress")
+    .with_story_points(13)
+    .with_assignee("Alice Chen")
+    .build())
+```
+
+#### Available Builders
+
+- **TPTeamBuilder** - TargetProcess teams with ARTs, owners, members
+- **TPFeatureBuilder** - TargetProcess features with teams, effort, Jira mapping
+- **TPTeamObjectiveBuilder** - TargetProcess PI objectives with releases, status
+- **JiraStoryBuilder** - Jira stories with status, points, assignee, epic links
+
+Each builder provides:
+- Fluent API (method chaining)
+- Sensible defaults matching real TP/Jira structures
+- Realistic timestamp generation
+- Custom field support
+
+#### Pytest Fixtures
+
+Pre-built fixtures available in `tests.fixtures.mock_data`:
+
+```python
+def test_something(tp_tech_debt_feature, tp_platform_team):
+    """Fixtures automatically injected."""
+    assert tp_tech_debt_feature["Id"] == 1937700
+    assert tp_platform_team["Name"] == "Platform Eco"
+```
+
+Available fixtures:
+- `tp_tech_debt_feature` - Real-world tech debt scenario
+- `tp_platform_team` - Platform team with 12 members
+- `tp_platform_objective` - Committed PI objective
+- `tp_multiple_teams` - Several teams with different ARTs
+- `tp_multiple_objectives` - Objectives in different statuses
+- `jira_story_basic` - Single Jira story
+- `jira_stories_under_epic` - Multiple stories under epic
+- Parameterized fixtures for status variations
+
+#### Why Not Real Data?
+
+✅ **Builders are better because:**
+- No sensitive company information
+- Can't accidentally commit credentials
+- Tests run instantly (no API calls)
+- Deterministic (no timing issues)
+- Can customize for any scenario
+- Perfect for CI/CD pipelines
+- Can be version controlled safely
+
+❌ **Real data risks:**
+- Accidentally commit customer data
+- Tight coupling to specific TP/Jira instances
+- Slower tests (real API calls)
+- Credential management complexity
+- Can't run tests in public CI without secrets
 
 ### Go Tests
 
