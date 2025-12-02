@@ -1132,3 +1132,205 @@ class TestPhase2BStoryRendering:
         assert "Without Stories" in markdown
         # Reference note for B only
         assert markdown.count("For detailed story decomposition") == 1
+
+
+class TestPhase2CTimestampMetadata:
+    """Phase 2C: Tests for sync timestamp metadata on sections."""
+
+    @pytest.fixture
+    def generator(self):
+        """Fixture providing a MarkdownGenerator instance."""
+        return MarkdownGenerator()
+
+    @pytest.fixture
+    def mock_objective_with_timestamps(self):
+        """Objective with sync timestamps."""
+        return {
+            "id": 2019099,
+            "name": "Platform governance",
+            "status": "Pending",
+            "effort": 21,
+            "owner": {"Name": "Norbert Borský"},
+            "synced_at": "2025-12-01T10:30:00+00:00",  # Phase 2C timestamp
+            "epics": [
+                {
+                    "id": 1001,
+                    "name": "Governance Framework",
+                    "effort": 8,
+                    "owner": "John Smith",
+                    "status": "Analyzed",
+                    "synced_at": "2025-12-01T10:30:00+00:00",  # Phase 2C timestamp
+                    "stories": [
+                        {
+                            "key": "GOV-101",
+                            "summary": "Define governance model",
+                            "status": "In Progress",
+                            "assignee": "Alice",
+                            "story_points": 5,
+                            "synced_at": "2025-12-01T10:30:00+00:00"  # Phase 2C timestamp
+                        }
+                    ]
+                }
+            ]
+        }
+
+    def test_objective_section_includes_last_synced(self, generator, mock_objective_with_timestamps):
+        """Test objective section includes **Last Synced** metadata."""
+        objectives = [mock_objective_with_timestamps]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Objective should have Last Synced field
+        assert "**Last Synced**: 2025-12-01T10:30:00+00:00" in markdown
+
+    def test_epic_section_includes_last_synced(self, generator, mock_objective_with_timestamps):
+        """Test epic section includes **Last Synced** metadata."""
+        objectives = [mock_objective_with_timestamps]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should have Last Synced appearing at least twice (objective + epic)
+        assert markdown.count("**Last Synced**:") >= 2
+
+    def test_story_section_includes_last_synced(self, generator, mock_objective_with_timestamps):
+        """Test story section includes **Last Synced** metadata."""
+        objectives = [mock_objective_with_timestamps]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should have Last Synced appearing three times (objective + epic + story)
+        assert markdown.count("**Last Synced**:") == 3
+
+    def test_timestamp_format_iso8601(self, generator, mock_objective_with_timestamps):
+        """Test timestamps are ISO 8601 format."""
+        objectives = [mock_objective_with_timestamps]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Timestamp should be ISO 8601 format (YYYY-MM-DDTHH:MM:SS+TZ)
+        assert "2025-12-01T10:30:00+00:00" in markdown
+
+    def test_objective_without_timestamp_renders_cleanly(self, generator):
+        """Test objective without timestamp field renders without error."""
+        objectives = [{
+            "id": 1,
+            "name": "Test Objective",
+            "status": "OK",
+            "effort": 10,
+            "owner": {"Name": "Test User"}
+            # No synced_at field
+        }]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should render without error, no Last Synced
+        assert "## Team Objective: Test Objective" in markdown
+        assert "**Last Synced**:" not in markdown
+
+    def test_epic_without_timestamp_renders_cleanly(self, generator):
+        """Test epic without timestamp renders cleanly."""
+        objectives = [{
+            "id": 1,
+            "name": "Test",
+            "status": "OK",
+            "effort": 10,
+            "epics": [{
+                "id": 100,
+                "name": "Epic Without Timestamp",
+                "owner": "Test",
+                "status": "OK",
+                "effort": 5
+                # No synced_at
+            }]
+        }]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should render cleanly
+        assert "### Epic: Epic Without Timestamp" in markdown
+
+    def test_story_without_timestamp_renders_cleanly(self, generator):
+        """Test story without timestamp renders cleanly."""
+        objectives = [{
+            "id": 1,
+            "name": "Test",
+            "status": "OK",
+            "effort": 10,
+            "epics": [{
+                "id": 100,
+                "name": "Epic",
+                "owner": "Test",
+                "status": "OK",
+                "effort": 5,
+                "stories": [{
+                    "key": "TEST-1",
+                    "summary": "Story without timestamp",
+                    "status": "To Do",
+                    "assignee": "User",
+                    "story_points": 3
+                    # No synced_at
+                }]
+            }]
+        }]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should render cleanly
+        assert "#### [TEST-1]" in markdown
+
+    def test_different_timestamps_on_different_sections(self, generator):
+        """Test different timestamps can be on different sections."""
+        objectives = [{
+            "id": 1,
+            "name": "Test Objective",
+            "status": "OK",
+            "effort": 10,
+            "synced_at": "2025-12-01T10:00:00+00:00",
+            "epics": [{
+                "id": 100,
+                "name": "Test Epic",
+                "owner": "Test",
+                "status": "OK",
+                "effort": 5,
+                "synced_at": "2025-12-01T11:00:00+00:00",  # Different time
+                "stories": [{
+                    "key": "TEST-1",
+                    "summary": "Test Story",
+                    "status": "To Do",
+                    "assignee": "User",
+                    "story_points": 3,
+                    "synced_at": "2025-12-01T11:30:00+00:00"  # Different time
+                }]
+            }]
+        }]
+        markdown = generator.generate(
+            team_name="Platform Eco",
+            release_name="PI-4/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # All three timestamps should appear
+        assert "2025-12-01T10:00:00+00:00" in markdown
+        assert "2025-12-01T11:00:00+00:00" in markdown
+        assert "2025-12-01T11:30:00+00:00" in markdown

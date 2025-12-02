@@ -174,6 +174,11 @@ class MarkdownGenerator:
         if program_obj:
             lines.append(f"**Program Objective**: {program_obj}")
 
+        # Phase 2C: Last synced timestamp (UC-PC-2)
+        synced_at = objective.get("synced_at")
+        if synced_at:
+            lines.append(f"**Last Synced**: {synced_at}")
+
         lines.append("")
 
         # Description section
@@ -227,6 +232,11 @@ class MarkdownGenerator:
         if jira_key:
             jira_url = self._format_jira_url(jira_key)
             lines.append(f"**Jira Epic**: [{jira_key}]({jira_url})")
+
+        # Phase 2C: Last synced timestamp (UC-PC-2)
+        synced_at = epic.get("synced_at")
+        if synced_at:
+            lines.append(f"**Last Synced**: {synced_at}")
 
         lines.append("")
 
@@ -289,6 +299,11 @@ class MarkdownGenerator:
 
         if story.get("story_points"):
             lines.append(f"**Story Points**: {story['story_points']}")
+
+        # Phase 2C: Last synced timestamp (UC-PC-2)
+        synced_at = story.get("synced_at")
+        if synced_at:
+            lines.append(f"**Last Synced**: {synced_at}")
 
         lines.append("")
 
