@@ -1,0 +1,149 @@
+================================================================================
+                  TPCLI_PI TEST COVERAGE ANALYSIS - SUMMARY
+================================================================================
+
+PROJECT STATUS: 379 tests covering 3,941 lines of code across 9 modules
+AVERAGE COVERAGE: ~6.6 tests per 100 lines of code (should be 10-15+)
+
+================================================================================
+                           MODULE COVERAGE MATRIX
+================================================================================
+
+MODULE                  LOC    TESTS   RATIO     COVERAGE    PRIORITY
+────────────────────────────────────────────────────────────────────────────────
+config.py               144    43      29.9%     ~100%  ✓    (Complete)
+markdown_generator.py   412    97      23.5%     ~85%   ✓    (Good)
+────────────────────────────────────────────────────────────────────────────────
+jira_api_client.py      301    27      8.97%     ~70%   ⚠    (Moderate)
+api_client.py          1009    74      7.3%      ~65%   ⚠    (Low)
+resilience.py           338    25      7.4%      ~65%   ⚠    (Low)
+analysis.py             406    26      6.4%      ~60%   ⚠    (Low)
+────────────────────────────────────────────────────────────────────────────────
+git_integration.py      350    23      6.6%      ~50%   ✗    (Very Low)
+change_tracker.py       528    35      6.6%      ~50%   ✗    (Very Low)
+monitoring.py           448    21      4.7%      ~55%   ✗    (Very Low)
+────────────────────────────────────────────────────────────────────────────────
+TOTALS                 3941   379      9.6%      ~65%
+
+================================================================================
+                        RECOMMENDED TEST ADDITIONS
+================================================================================
+
+PRIORITY 1: CRITICAL (2-3 weeks effort)
+  git_integration.py        : +40 tests (branch/push/pull edge cases, errors)
+  api_client.py             : +60 tests (filters, entity parsing, errors)
+  
+PRIORITY 2: HIGH (2 weeks effort)
+  change_tracker.py         : +50 tests (ChangeTracker implementation)
+  monitoring.py             : +35 tests (logger, thread safety, persistence)
+
+PRIORITY 3: MEDIUM (1-2 weeks effort)
+  analysis.py               : +30 tests (DependencyAnalyzer, risk edge cases)
+  resilience.py             : +25 tests (actual timing, rate limit boundaries)
+
+PRIORITY 4: LOWER (3-5 days effort)
+  jira_api_client.py        : +15 tests (search retries, field extraction)
+  markdown_generator.py     : +10 tests (HTML cleaning, boundaries)
+
+TOTAL RECOMMENDED ADDITIONS: +265 tests over 5-6 weeks
+PROJECTED FINAL COVERAGE: ~8.5 tests per 100 LOC (~70-75% estimated coverage)
+
+================================================================================
+                          TOP 5 CRITICAL GAPS
+================================================================================
+
+1. GIT_INTEGRATION.py - Core sync functionality untested
+   ✗ pull() - 50 LOC, zero tests
+   ✗ push() - 60 LOC, zero tests
+   ✗ _parse_changes() - stub, no tests
+   ✗ Error handling - branch conflicts, git failures not tested
+
+2. API_CLIENT.py - Largest module (1009 LOC) with gaps
+   ✗ Query filters - complex combinations untested
+   ✗ Entity parsing - null/empty fields, invalid types not tested
+   ✗ Error paths - network errors, authentication failures
+   ✗ Caching - poisoning, consistency not tested
+
+3. CHANGE_TRACKER.py - ChangeTracker implementation mostly missing
+   ✗ detect_changes_in_diff() - untested
+   ✗ detect_user_edits() - untested
+   ✗ generate_conflict_hints() - untested
+   ✗ 100+ LOC of skeleton tests (no-ops)
+
+4. MONITORING.py - Logger & thread safety not tested
+   ✗ _setup_logger() - 25 LOC untested
+   ✗ Thread safety - concurrent access not tested
+   ✗ Persistence - export/import error scenarios
+   ✗ Health checks - timeout, name collisions
+
+5. ANALYSIS.py - DependencyAnalyzer completely untested
+   ✗ DependencyAnalyzer.map_dependencies() - placeholder, no tests
+   ✗ DependencyAnalyzer.find_critical_path() - placeholder, no tests
+   ✗ Risk detection - edge cases (very large values, null fields)
+   ✗ MetricsCalculator - team velocity always returns 0.0
+
+================================================================================
+                        ERROR PATHS & EDGE CASES NOT COVERED
+================================================================================
+
+NETWORK & API ERRORS
+  • Connection refused (all modules using requests/subprocess)
+  • DNS resolution failures
+  • SSL/TLS certificate errors
+  • Rate limiting from TP API (not just Jira)
+  • Partial failures (some data parses, some fails)
+  • Token expiration / authentication failures
+
+GIT OPERATIONS
+  • Repo not initialized
+  • Branch name conflicts
+  • File path conflicts
+  • Permission denied
+  • Large markdown files (>10MB)
+  • Network timeout on git push
+
+CONCURRENCY & THREADING
+  • Concurrent operation registration (monitoring)
+  • Race conditions in cache access
+  • Simultaneous git operations
+  • Thread-safe health check updates
+
+DATA BOUNDARIES & EDGE CASES
+  • Null/empty fields in all entities (api_client)
+  • Very long strings (1000+ chars in names)
+  • Unicode/special characters in all fields
+  • Negative numbers where positive expected
+  • Very large numbers (>1M, >1B)
+  • Empty collections (0 objectives, 0 teams)
+  • Clock skew scenarios (time goes backwards)
+
+RESILIENCE & RETRY LOGIC
+  • Actual sleep duration verification (not mocked)
+  • Window boundary timing in rate limiter
+  • Monitoring service failures during retries
+  • Operation state modification on failure
+  • SystemExit/KeyboardInterrupt handling
+
+================================================================================
+                      TESTING BEST PRACTICES GAPS
+================================================================================
+
+MISSING TEST PATTERNS
+  ✗ Parametrized tests for multiple similar scenarios
+  ✗ Fixture factories for complex test objects
+  ✗ Actual time/clock mocking (e.g., freezegun)
+  ✗ Performance/stress tests (many operations, large data)
+  ✗ Property-based testing (hypothesis)
+  ✗ Mutation testing to verify test quality
+
+INCOMPLETE COVERAGE STRATEGIES
+  ✗ Branch coverage (if/else paths)
+  ✗ Exception path coverage (try/except branches)
+  ✗ Integration test coverage
+  ✗ End-to-end workflow testing
+
+================================================================================
+
+Full detailed analysis available in: TEST_COVERAGE_ANALYSIS.md
+
+Generated: 2025-12-02
