@@ -240,9 +240,66 @@ class MarkdownGenerator:
                     lines.append(f"  - {line.strip()}")
             lines.append("")
 
-        # US-PA-3: Note directing users to Jira for story decomposition
-        if jira_key:
+        # US-PB-1: Stories from Jira (Phase 2B)
+        stories = epic.get("stories", [])
+        if stories:
+            lines.append("")
+            for story in sorted(stories, key=lambda s: s.get("key", "")):
+                lines.extend(self._story_section(story))
+            # Only show reference note if we don't have stories
+        elif jira_key:
+            # US-PA-3: Note directing users to Jira for story decomposition (only if no stories)
             lines.append(f"*For detailed story decomposition, see [Jira {jira_key}]({self._format_jira_url(jira_key)})*")
+            lines.append("")
+
+        return lines
+
+    def _story_section(self, story: dict[str, Any]) -> list[str]:
+        """
+        Generate markdown section for a Jira story (Phase 2B).
+
+        Renders as H4 subsection under epic with:
+        - Story key as clickable link to Jira (US-PB-1)
+        - Story status (US-PB-3)
+        - Assignee and story points
+        - Acceptance criteria from description (US-PB-2)
+
+        Args:
+            story: Story dict with key, summary, status, assignee, story_points, description
+
+        Returns:
+            List of markdown lines
+        """
+        lines = []
+
+        # H4 header with story key as link
+        story_key = story.get("key", "UNKNOWN")
+        story_summary = story.get("summary", "Untitled")
+        jira_url = self._format_jira_url(story_key)
+
+        lines.append(f"#### [{story_key}]({jira_url}) - {story_summary}")
+        lines.append("")
+
+        # Story metadata
+        if story.get("status"):
+            lines.append(f"**Status**: {story['status']}")
+
+        if story.get("assignee"):
+            lines.append(f"**Assignee**: {story['assignee']}")
+
+        if story.get("story_points"):
+            lines.append(f"**Story Points**: {story['story_points']}")
+
+        lines.append("")
+
+        # Story AC from description (US-PB-2)
+        description = story.get("description")
+        if description:
+            lines.append("**Acceptance Criteria**:")
+            cleaned_ac = self._clean_html(description)
+            for line in cleaned_ac.split('\n'):
+                if line.strip():
+                    lines.append(f"  - {line.strip()}")
             lines.append("")
 
         return lines

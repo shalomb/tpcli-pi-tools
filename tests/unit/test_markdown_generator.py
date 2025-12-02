@@ -847,3 +847,288 @@ class TestPhaseAJiraIntegration:
             )
             assert f"[{jira_key}]" in markdown
             assert f"browse/{jira_key}" in markdown
+
+
+class TestPhase2BStoryRendering:
+    """Phase 2B: Tests for Jira story rendering as H4 subsections."""
+
+    @pytest.fixture
+    def generator(self):
+        """Fixture providing a MarkdownGenerator instance."""
+        return MarkdownGenerator()
+
+    @pytest.fixture
+    def mock_epic_with_stories(self):
+        """Epic with Jira stories."""
+        return {
+            "id": 2018883,
+            "name": "Semantic Versioning & CI/CD",
+            "owner": "Venkatesh Ravi",
+            "status": "Analyzing",
+            "effort": 21,
+            "jira_key": "DAD-2652",
+            "stories": [
+                {
+                    "key": "DAD-2653",
+                    "summary": "Set up pod resource limits",
+                    "status": "In Progress",
+                    "assignee": "Alice Chen",
+                    "story_points": 5,
+                    "description": "Configure memory and CPU limits\nValidate in staging"
+                },
+                {
+                    "key": "DAD-2654",
+                    "summary": "Implement alerting rules",
+                    "status": "To Do",
+                    "assignee": "Bob Kumar",
+                    "story_points": 8,
+                    "description": "Set up alerting for backend pods"
+                }
+            ]
+        }
+
+    # US-PB-1: Story rendering and links
+    def test_stories_rendered_as_h4_subsections(self, generator, mock_epic_with_stories):
+        """Test stories appear as H4 subsections."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Check H4 headers for stories
+        assert "#### [DAD-2653]" in markdown
+        assert "#### [DAD-2654]" in markdown
+
+    def test_story_key_as_clickable_link(self, generator, mock_epic_with_stories):
+        """Test story key formatted as link to Jira."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Story keys should link to Jira
+        assert "https://jira.takeda.com/browse/DAD-2653" in markdown
+        assert "https://jira.takeda.com/browse/DAD-2654" in markdown
+
+    def test_story_summary_included(self, generator, mock_epic_with_stories):
+        """Test story summary (title) included in markdown."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Story summaries should appear
+        assert "Set up pod resource limits" in markdown
+        assert "Implement alerting rules" in markdown
+
+    def test_stories_ordered_by_key(self, generator, mock_epic_with_stories):
+        """Test stories ordered consistently by key."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # DAD-2653 should appear before DAD-2654
+        pos_2653 = markdown.find("DAD-2653")
+        pos_2654 = markdown.find("DAD-2654")
+        assert pos_2653 < pos_2654
+
+    # US-PB-3: Story status
+    def test_story_status_displayed(self, generator, mock_epic_with_stories):
+        """Test story status from Jira displayed."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Status should appear for both stories
+        assert "In Progress" in markdown
+        assert "To Do" in markdown
+
+    # US-PB-1: Story metadata
+    def test_story_assignee_displayed(self, generator, mock_epic_with_stories):
+        """Test story assignee displayed."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Assignees should appear
+        assert "Alice Chen" in markdown
+        assert "Bob Kumar" in markdown
+
+    def test_story_points_displayed(self, generator, mock_epic_with_stories):
+        """Test story points displayed."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Story points should appear
+        assert "5" in markdown
+        assert "8" in markdown
+
+    # US-PB-2: Story acceptance criteria
+    def test_story_acceptance_criteria_displayed(self, generator, mock_epic_with_stories):
+        """Test story AC from description displayed."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Story AC should appear
+        assert "Configure memory and CPU limits" in markdown
+        assert "Validate in staging" in markdown
+        assert "Set up alerting for backend pods" in markdown
+
+    def test_story_without_description_renders_cleanly(self, generator):
+        """Test story without description (AC) renders without errors."""
+        epic_with_story_no_desc = {
+            "id": 1,
+            "name": "Test Epic",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "TEST-1",
+            "stories": [{
+                "key": "TEST-101",
+                "summary": "No AC Story",
+                "status": "To Do",
+                "assignee": "Test User",
+                "story_points": 3
+                # No description
+            }]
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_with_story_no_desc]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Should render without error, story appears
+        assert "#### [TEST-101]" in markdown
+        assert "No AC Story" in markdown
+        # But no empty AC section
+        assert "[TEST-101]\n\nAcceptance Criteria" not in markdown
+
+    def test_epic_with_stories_no_reference_note(self, generator, mock_epic_with_stories):
+        """Test epic with stories shows stories, not reference note."""
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [mock_epic_with_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Stories should appear
+        assert "#### [DAD-2653]" in markdown
+        # Reference note should NOT appear (we have stories)
+        assert "For detailed story decomposition" not in markdown
+
+    def test_epic_without_stories_shows_reference_note(self, generator):
+        """Test epic without stories shows reference note."""
+        epic_no_stories = {
+            "id": 1,
+            "name": "Legacy Epic",
+            "owner": "Test",
+            "status": "OK",
+            "effort": 5,
+            "jira_key": "LEGACY-1"
+            # No stories field
+        }
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": [epic_no_stories]
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Epic still appears
+        assert "### Epic: Legacy Epic" in markdown
+        # Reference note should appear
+        assert "For detailed story decomposition" in markdown
+
+    def test_multiple_epics_with_mixed_stories(self, generator):
+        """Test multiple epics, some with stories and some without."""
+        epics = [
+            {
+                "id": 1, "name": "With Stories", "owner": "T1", "status": "OK",
+                "effort": 5, "jira_key": "A-1",
+                "stories": [{
+                    "key": "A-101", "summary": "Story 1", "status": "Done",
+                    "assignee": "User", "story_points": 3, "description": "AC 1"
+                }]
+            },
+            {
+                "id": 2, "name": "Without Stories", "owner": "T2", "status": "OK",
+                "effort": 5, "jira_key": "B-1"
+                # No stories
+            }
+        ]
+        objectives = [{
+            "id": 1, "name": "Test", "status": "OK", "effort": 10,
+            "epics": epics
+        }]
+        markdown = generator.generate(
+            team_name="Test Team",
+            release_name="PI-1/25",
+            art_name="Test ART",
+            team_objectives=objectives,
+        )
+        # Epic A should have story
+        assert "#### [A-101]" in markdown
+        # Epic B should have reference note
+        assert "With Stories" in markdown
+        assert "Without Stories" in markdown
+        # Reference note for B only
+        assert markdown.count("For detailed story decomposition") == 1
