@@ -100,3 +100,42 @@ def get_jira_token() -> str | None:
     """
     config = load_config()
     return config.get("jira-token") or os.getenv("JIRA_TOKEN")
+
+
+def get_tp_url() -> str | None:
+    """Get TargetProcess URL from config or environment.
+
+    Priority:
+    1. Config file (tp-url key)
+    2. Environment variable (TP_URL)
+    3. None (will use API client default)
+
+    Returns:
+        TargetProcess URL, or None if not set
+    """
+    config = load_config()
+    return config.get("tp-url") or os.getenv("TP_URL")
+
+
+def get_tp_token() -> str | None:
+    """Get TargetProcess API token from config or environment.
+
+    Priority:
+    1. Config file (tp-token key)
+    2. Config file (api-token key for backward compatibility)
+    3. Environment variable (TP_TOKEN)
+    4. Environment variable (TARGETPROCESS_API_TOKEN for backward compatibility)
+    5. None (will require user to set one)
+
+    Returns:
+        TargetProcess API token, or None if not set
+    """
+    config = load_config()
+    # Try new key first, then backward compat keys
+    token = (
+        config.get("tp-token")
+        or config.get("api-token")  # Old key name
+        or os.getenv("TP_TOKEN")
+        or os.getenv("TARGETPROCESS_API_TOKEN")
+    )
+    return token

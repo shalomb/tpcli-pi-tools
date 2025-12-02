@@ -18,6 +18,8 @@ from tpcli_pi.core.config import (
     get_default_team,
     get_jira_url,
     get_jira_token,
+    get_tp_url,
+    get_tp_token,
 )
 
 
@@ -415,5 +417,149 @@ jira-token: "test-jira-token-xyz"
 
                 assert url == "https://jira.test.com"
                 assert token == "test-jira-token-xyz"
+        finally:
+            Path(temp_path).unlink()
+
+
+class TestGetTpUrl:
+    """Tests for get_tp_url() function."""
+
+    def test_get_tp_url_from_config(self) -> None:
+        """Test TP URL from config file."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"tp-url": "https://company.tpondemand.com"}
+            url = get_tp_url()
+            assert url == "https://company.tpondemand.com"
+
+    def test_get_tp_url_from_environment(self) -> None:
+        """Test TP URL from environment variable."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"TP_URL": "https://tp.env.com"}):
+                url = get_tp_url()
+                assert url == "https://tp.env.com"
+
+    def test_get_tp_url_config_takes_precedence(self) -> None:
+        """Test that config file takes precedence over environment."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"tp-url": "https://tp.config.com"}
+            with patch.dict(os.environ, {"TP_URL": "https://tp.env.com"}):
+                url = get_tp_url()
+                assert url == "https://tp.config.com"
+
+    def test_get_tp_url_returns_none_when_not_set(self) -> None:
+        """Test that None is returned when URL not configured."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {}, clear=True):
+                url = get_tp_url()
+                assert url is None
+
+
+class TestGetTpToken:
+    """Tests for get_tp_token() function."""
+
+    def test_get_tp_token_from_config(self) -> None:
+        """Test TP token from config file (new key)."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"tp-token": "config-tp-token-123"}
+            token = get_tp_token()
+            assert token == "config-tp-token-123"
+
+    def test_get_tp_token_from_config_backward_compat(self) -> None:
+        """Test TP token from config file (old api-token key)."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"api-token": "old-api-token-456"}
+            token = get_tp_token()
+            assert token == "old-api-token-456"
+
+    def test_get_tp_token_new_key_takes_precedence(self) -> None:
+        """Test that tp-token takes precedence over api-token."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {
+                "tp-token": "new-token",
+                "api-token": "old-token"
+            }
+            token = get_tp_token()
+            assert token == "new-token"
+
+    def test_get_tp_token_from_environment(self) -> None:
+        """Test TP token from environment variable (new key)."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"TP_TOKEN": "env-tp-token-789"}):
+                token = get_tp_token()
+                assert token == "env-tp-token-789"
+
+    def test_get_tp_token_from_environment_backward_compat(self) -> None:
+        """Test TP token from environment (old TARGETPROCESS_API_TOKEN)."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"TARGETPROCESS_API_TOKEN": "old-env-token"}):
+                token = get_tp_token()
+                assert token == "old-env-token"
+
+    def test_get_tp_token_config_takes_precedence(self) -> None:
+        """Test that config takes precedence over environment."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"tp-token": "config-token"}
+            with patch.dict(os.environ, {"TP_TOKEN": "env-token"}):
+                token = get_tp_token()
+                assert token == "config-token"
+
+    def test_get_tp_token_precedence_order(self) -> None:
+        """Test full precedence order: tp-token > api-token > TP_TOKEN > TARGETPROCESS_API_TOKEN."""
+        # Test case 1: tp-token only
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"tp-token": "winner"}
+            with patch.dict(os.environ, {"TP_TOKEN": "loser", "TARGETPROCESS_API_TOKEN": "loser"}):
+                assert get_tp_token() == "winner"
+
+        # Test case 2: api-token when tp-token missing
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {"api-token": "winner"}
+            with patch.dict(os.environ, {"TP_TOKEN": "loser", "TARGETPROCESS_API_TOKEN": "loser"}):
+                assert get_tp_token() == "winner"
+
+        # Test case 3: TP_TOKEN when config missing
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {"TP_TOKEN": "winner", "TARGETPROCESS_API_TOKEN": "loser"}):
+                assert get_tp_token() == "winner"
+
+    def test_get_tp_token_returns_none_when_not_set(self) -> None:
+        """Test that None is returned when token not configured anywhere."""
+        with patch("tpcli_pi.core.config.load_config") as mock_load:
+            mock_load.return_value = {}
+            with patch.dict(os.environ, {}, clear=True):
+                token = get_tp_token()
+                assert token is None
+
+    def test_tp_credentials_in_config_yaml(self) -> None:
+        """Test TP credentials in complete config YAML."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("""
+default-art: "Test ART"
+default-team: "Test Team"
+tp-url: "https://tp.test.com"
+tp-token: "test-tp-token-xyz"
+jira-url: "https://jira.test.com"
+jira-token: "test-jira-token-xyz"
+""")
+            f.flush()
+            temp_path = f.name
+
+        try:
+            with patch("tpcli_pi.core.config._get_config_paths") as mock_paths:
+                mock_paths.return_value = [temp_path]
+                tp_url = get_tp_url()
+                tp_token = get_tp_token()
+                jira_url = get_jira_url()
+                jira_token = get_jira_token()
+
+                assert tp_url == "https://tp.test.com"
+                assert tp_token == "test-tp-token-xyz"
+                assert jira_url == "https://jira.test.com"
+                assert jira_token == "test-jira-token-xyz"
         finally:
             Path(temp_path).unlink()
