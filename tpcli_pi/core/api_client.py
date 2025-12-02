@@ -31,14 +31,29 @@ class TPAPIClient:
     subprocess overhead for repeated queries.
     """
 
-    def __init__(self, verbose: bool = False, cache_ttl: int = 3600) -> None:
+    def __init__(
+        self,
+        verbose: bool = False,
+        cache_ttl: int = 3600,
+        tp_url: str | None = None,
+        tp_token: str | None = None,
+    ) -> None:
         """
         Initialize the TargetProcess API client.
+
+        Credentials are sourced from (in priority order):
+        1. Constructor parameters (tp_url, tp_token)
+        2. Config file (~/.config/tpcli/config.yaml or XDG location)
+        3. Environment variables (TP_URL, TP_TOKEN)
 
         Args:
             verbose: Enable verbose output for debugging
             cache_ttl: Cache time-to-live in seconds (default: 1 hour)
+            tp_url: TargetProcess base URL (e.g., https://company.tpondemand.com)
+            tp_token: TargetProcess API token (base64 encoded)
         """
+        from . import config as config_module
+
         self.verbose = verbose
         self._cache: dict[str, Any] = {}
         self._cache_timestamps: dict[str, float] = {}
@@ -48,6 +63,10 @@ class TPAPIClient:
             "misses": 0,
             "evictions": 0,
         }
+
+        # Priority: constructor params > config file > env vars
+        self.tp_url = tp_url or config_module.get_tp_url()
+        self.tp_token = tp_token or config_module.get_tp_token()
 
     @staticmethod
     def _parse_tp_date(date_str: str | None) -> datetime | None:
@@ -95,6 +114,13 @@ class TPAPIClient:
             TPAPIError: If tpcli command fails or returns invalid JSON
         """
         cmd = ["tpcli", "list", entity_type, "--take", "1000"]
+
+        # Add credentials if available
+        if self.tp_url:
+            cmd.extend(["--url", self.tp_url])
+        if self.tp_token:
+            cmd.extend(["--token", self.tp_token])
+
         if args:
             cmd.extend(args)
 
@@ -505,6 +531,12 @@ class TPAPIClient:
 
         cmd = ["tpcli", "plan", "create", entity_type, "--data", data_json]
 
+        # Add credentials if available
+        if self.tp_url:
+            cmd.extend(["--url", self.tp_url])
+        if self.tp_token:
+            cmd.extend(["--token", self.tp_token])
+
         try:
             result = subprocess.run(  # noqa: S603
                 cmd,
@@ -568,6 +600,12 @@ class TPAPIClient:
             "--data",
             data_json,
         ]
+
+        # Add credentials if available
+        if self.tp_url:
+            cmd.extend(["--url", self.tp_url])
+        if self.tp_token:
+            cmd.extend(["--token", self.tp_token])
 
         try:
             result = subprocess.run(  # noqa: S603
