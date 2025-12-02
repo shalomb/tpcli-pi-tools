@@ -15,6 +15,12 @@ from tests.fixtures.git_helper import (
     git_repo_conflict_scenario,
 )
 
+# Import all mock data and builder fixtures
+# This makes them available to all tests without explicit imports
+pytest_plugins = [
+    "tests.fixtures.mock_data",
+]
+
 
 # Configure VCR for golden file cassette recording/replay
 vcr_config = vcr.VCR(
