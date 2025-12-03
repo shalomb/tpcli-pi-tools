@@ -95,10 +95,14 @@ target-version = ["py311"]
 art-dashboard = "tpcli_pi.cli.art_dashboard:main"
 
 # PI/Release-level scripts (collate together)
+pi-list = "tpcli_pi.cli.pi_list:main"
 pi-objectives = "tpcli_pi.cli.objective_deep_dive:main"
 pi-status = "tpcli_pi.cli.release_status:main"
 
 # Team-level scripts (collate together)
+team-dashboard = "tpcli_pi.cli.team_dashboard:main"
+team-objectives = "tpcli_pi.cli.team_objectives:main"
+team-features = "tpcli_pi.cli.team_features:main"
 team-analysis = "tpcli_pi.cli.team_deep_dive:main"
 
 # Legacy aliases for backwards compatibility
