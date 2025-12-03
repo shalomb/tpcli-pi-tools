@@ -91,7 +91,17 @@ line-length = 100
 target-version = ["py311"]
 
 [project.scripts]
+# ART-level scripts
 art-dashboard = "tpcli_pi.cli.art_dashboard:main"
-team-deep-dive = "tpcli_pi.cli.team_deep_dive:main"
+
+# PI/Release-level scripts (collate together)
+pi-objectives = "tpcli_pi.cli.objective_deep_dive:main"
+pi-status = "tpcli_pi.cli.release_status:main"
+
+# Team-level scripts (collate together)
+team-analysis = "tpcli_pi.cli.team_deep_dive:main"
+
+# Legacy aliases for backwards compatibility
 objective-deep-dive = "tpcli_pi.cli.objective_deep_dive:main"
 release-status = "tpcli_pi.cli.release_status:main"
+team-deep-dive = "tpcli_pi.cli.team_deep_dive:main"

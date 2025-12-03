@@ -19,7 +19,20 @@ Examples:
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if args[0] == "list" {
-			candidates := []string{"art-dashboard", "team-deep-dive", "objective-deep-dive", "release-status"}
+			// Logical grouping for discoverability (collate by type: art-*, pi-*, team-*)
+			candidates := []string{
+				// ART-level scripts
+				"art-dashboard",
+				// PI/Release-level scripts
+				"pi-objectives",
+				"pi-status",
+				// Team-level scripts
+				"team-analysis",
+				// Legacy aliases for backwards compatibility
+				"objective-deep-dive",
+				"release-status",
+				"team-deep-dive",
+			}
 			found := []string{}
 			for _, name := range candidates {
 				if p, err := exec.LookPath(name); err == nil {
