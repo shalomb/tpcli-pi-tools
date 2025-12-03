@@ -18,7 +18,16 @@ var rootCmd = &cobra.Command{
 	Short: "TargetProcess CLI - A command-line interface for TargetProcess/Apptio",
 	Long: `tpcli is a CLI tool for interacting with the TargetProcess REST API.
 It supports querying user stories, bugs, tasks, and other entities,
-as well as creating and updating items.`,
+as well as creating and updating items.
+
+Getting started:
+  1. Discover what data you have: tpcli discover
+  2. List an entity type: tpcli list Features
+  3. Filter results: tpcli list Features --where "EntityState.Name eq 'Open'"
+  4. Run analysis scripts: tpcli ext team-dashboard --team "MyTeam"
+
+For more help: tpcli list --help
+For discovery guide: tpcli discover --help`,
 }
 
 // Execute runs the root command

@@ -15,9 +15,21 @@ var discoverCmd = &cobra.Command{
 	Long: `Discover available entity types and their properties.
 This helps map out the TargetProcess data model for your instance.
 
+This command connects to your TargetProcess instance and shows:
+- All available entity types (Projects, Teams, Features, UserStories, Bugs, etc.)
+- How many items of each type exist in your instance
+- What fields/properties are available for each type
+- Sample data from each type
+
+Use this to discover what entity types you can query with 'tpcli list'.
+
 Examples:
-  tpcli discover
-  tpcli discover -v`,
+  tpcli discover           # Full discovery with sample data
+  tpcli discover -v        # Verbose output with additional details
+
+After discovering, use entity types with 'tpcli list':
+  tpcli list Features
+  tpcli list UserStories --where "EntityState.Name eq 'Open'"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get configuration from viper (bound to flags and env vars)
 		token := viper.GetString("token")

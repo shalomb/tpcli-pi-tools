@@ -21,6 +21,9 @@ var listCmd = &cobra.Command{
 	Short: "List entities from TargetProcess",
 	Long: `List entities such as UserStories, Bugs, Tasks, Features, etc.
 
+To discover what entity types are available in your TargetProcess instance, run:
+  tpcli discover
+
 Examples:
   tpcli list UserStories
   tpcli list UserStories --where "EntityState.Name eq 'Open'"
