@@ -103,6 +103,9 @@ pi-status = "tpcli_pi.cli.release_status:main"
 team-dashboard = "tpcli_pi.cli.team_dashboard:main"
 team-objectives = "tpcli_pi.cli.team_objectives:main"
 team-features = "tpcli_pi.cli.team_features:main"
+team-capacity = "tpcli_pi.cli.team_capacity:main"
+team-risks = "tpcli_pi.cli.team_risks:main"
+team-dependencies = "tpcli_pi.cli.team_dependencies:main"
 team-analysis = "tpcli_pi.cli.team_deep_dive:main"
 
 # Legacy aliases for backwards compatibility

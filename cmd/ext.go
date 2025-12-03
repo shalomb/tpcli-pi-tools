@@ -31,6 +31,9 @@ Examples:
 				"team-dashboard",
 				"team-objectives",
 				"team-features",
+				"team-capacity",
+				"team-risks",
+				"team-dependencies",
 				"team-analysis",
 				// Legacy aliases for backwards compatibility
 				"objective-deep-dive",
