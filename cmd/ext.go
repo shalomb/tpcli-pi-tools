@@ -23,10 +23,14 @@ Examples:
 			candidates := []string{
 				// ART-level scripts
 				"art-dashboard",
-				// PI/Release-level scripts
+				// PI/Release-level scripts (Phase 1+)
+				"pi-list",
 				"pi-objectives",
 				"pi-status",
-				// Team-level scripts
+				// Team-level scripts (Phase 1+)
+				"team-dashboard",
+				"team-objectives",
+				"team-features",
 				"team-analysis",
 				// Legacy aliases for backwards compatibility
 				"objective-deep-dive",
